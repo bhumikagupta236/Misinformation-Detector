@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run Trust Guide (Spring Boot)",
+            "request": "launch",
+            "mainClass": "com.datastellers.detector.MisinformationDetectorApplication",
+            "projectName": "trust-guide",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trust Guide – Misinformation Detector</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Header -->
+    <header class="site-header">
+        <div class="container header-content">
+            <div class="brand">
+                <div class="shield-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="app-title">Trust Guide</h1>
+                    <p class="app-tagline">Think before you trust.</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <span id="dbStatusBadge" class="db-badge db-connected">Database Connected</span>
+                <span class="project-badge">Misinformation Detector</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container main-content">
+        <!-- Status / Alert Banner for Feedback Messages -->
+        <div id="feedbackBanner" class="feedback-banner hidden" role="alert"></div>
+
+        <!-- Claim Input Card -->
+        <section class="card analyzer-card" aria-labelledby="analyzeHeading">
+            <div class="card-header">
+                <h2 id="analyzeHeading">Analyze a News Claim or Headline</h2>
+                <p class="section-subtitle">
+                    Paste a news headline, social media forward, or short paragraph below to calculate its True / False indicator percentage.
+                </p>
+            </div>
+
+            <form id="analyzeForm" novalidate>
+                <div class="form-group">
+                    <label for="claimInput" class="form-label">News Claim Text</label>
+                    <textarea
+                        id="claimInput"
+                        class="claim-textarea"
+                        rows="4"
+                        maxlength="3000"
+                        placeholder="Example: Breaking! The shocking truth they don't want you to know about this miracle cure..."
+                        required
+                    ></textarea>
+                    <div class="input-meta">
+                        <div class="sample-buttons">
+                            <span class="sample-label">Try an example:</span>
+                            <button type="button" class="chip-btn" data-sample="SHOCKING TRUTH: Secret revealed about a 100% guaranteed miracle cure! Share immediately!!!">
+                                Sensational Claim
+                            </button>
+                            <button type="button" class="chip-btn" data-sample="According to an official report published by the Ministry of Education, university exams will begin next month.">
+                                Official News Headline
+                            </button>
+                        </div>
+                        <span id="charCount" class="char-count">0 / 3000</span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" id="analyzeBtn" class="btn btn-primary">
+                        <span id="analyzeBtnText">Analyze Claim</span>
+                        <span id="analyzeSpinner" class="spinner hidden" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" id="resetInputBtn" class="btn btn-secondary">
+                        Clear Text
+                    </button>
+                </div>
+            </form>
+
+            <!-- Disclaimer Note -->
+            <div class="disclaimer-box">
+                <strong>Educational Note:</strong> This tool uses a baseline keyword-based heuristic approach in Java to calculate preliminary True (Reliability) and False (Misleading Risk) indicator percentages. It is a college PBL demonstration, not a trained machine-learning fact-checking model.
+            </div>
+        </section>
+
+        <!-- Analysis Result Card -->
+        <section id="resultSection" class="card result-card hidden" aria-labelledby="resultHeading">
+            <div class="result-header">
+                <h2 id="resultHeading">Assessment Result</h2>
+                <span id="resultBadge" class="status-badge">Needs Verification</span>
+            </div>
+
+            <div class="result-body">
+                <p class="analyzed-claim-preview" id="resultClaimText"></p>
+
+                <!-- True / False Percentage Breakdown -->
+                <div class="percentage-panel">
+                    <div class="percentage-cards">
+                        <div class="score-box score-true">
+                            <span class="score-label">True / Reliable Indicator</span>
+                            <span id="truePercentValue" class="score-number">50%</span>
+                        </div>
+                        <div class="score-box score-false">
+                            <span class="score-label">False / Misleading Risk</span>
+                            <span id="falsePercentValue" class="score-number">50%</span>
+                        </div>
+                    </div>
+
+                    <div class="progress-bar-track" aria-label="True vs False percentage bar">
+                        <div id="trueProgressBar" class="progress-fill-true" style="width: 50%"></div>
+                        <div id="falseProgressBar" class="progress-fill-false" style="width: 50%"></div>
+                    </div>
+                    <div class="progress-legend">
+                        <span class="legend-true">&#9679; True / Reliable %</span>
+                        <span class="legend-false">&#9679; False / Misleading %</span>
+                    </div>
+                </div>
+
+                <div class="explanation-box">
+                    <h3>Why did it receive this assessment?</h3>
+                    <p id="resultExplanation"></p>
+                </div>
+                <p class="result-timestamp" id="resultTimestamp"></p>
+            </div>
+        </section>
+
+        <!-- Recent History Section -->
+        <section class="card history-card" aria-labelledby="historyHeading">
+            <div class="history-header">
+                <div>
+                    <h2 id="historyHeading">Recent History</h2>
+                    <p class="section-subtitle">Previously analyzed claims stored in the SQL database (newest first).</p>
+                </div>
+                <div class="history-actions">
+                    <button type="button" id="refreshHistoryBtn" class="btn btn-secondary btn-sm">
+                        Refresh
+                    </button>
+                    <button type="button" id="clearHistoryBtn" class="btn btn-danger-outline btn-sm">
+                        Clear History
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading indicator for history -->
+            <div id="historyLoading" class="history-loading hidden">
+                <span class="spinner spinner-dark" aria-hidden="true"></span>
+                <span>Loading saved history from database...</span>
+            </div>
+
+            <!-- Empty state -->
+            <div id="emptyHistoryState" class="empty-state hidden">
+                <p>No claims have been analyzed yet. Enter a claim above and click <strong>Analyze Claim</strong> to save your first record.</p>
+            </div>
+
+            <!-- History List Container -->
+            <div id="historyList" class="history-list"></div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <p>Trust Guide – Misinformation Detector &bull; Built with Java, Spring Boot &amp; SQL Database</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
