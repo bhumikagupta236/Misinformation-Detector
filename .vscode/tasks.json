@@ -1,0 +1,39 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "mvn compile",
+            "type": "shell",
+            "command": "${workspaceFolder}/mvnw.cmd compile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$maven"]
+        },
+        {
+            "label": "compile",
+            "type": "shell",
+            "command": "${workspaceFolder}/mvnw.cmd compile",
+            "group": "build",
+            "problemMatcher": ["$maven"]
+        },
+        {
+            "label": "Run Trust Guide (Spring Boot)",
+            "type": "shell",
+            "command": "${workspaceFolder}/mvnw.cmd spring-boot:run",
+            "group": "none",
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*Starting MisinformationDetectorApplication.*",
+                    "endsPattern": ".*Started MisinformationDetectorApplication.*"
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,5 @@
+{
+    "maven.executable.path": "${workspaceFolder}/mvnw.cmd",
+    "maven.terminal.useJavaHome": true,
+    "java.configuration.updateBuildConfiguration": "automatic"
+}
