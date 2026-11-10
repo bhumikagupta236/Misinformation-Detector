@@ -38,7 +38,7 @@
             <div class="history-header">
                 <div>
                     <h2 id="historyHeading">Analysis History</h2>
-                    <p class="section-subtitle">All previously analyzed news claims stored in the SQL database (newest first).</p>
+                    <p class="section-subtitle">All your analyzed news claims stored in the database (newest first).</p>
                 </div>
                 <div class="history-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <a href="dashboard.html" class="btn btn-primary btn-sm">
@@ -69,15 +69,15 @@
                 <a href="dashboard.html" class="btn btn-primary btn-sm">Go to Dashboard</a>
             </div>
 
-            <!-- Table of History Records -->
+            <!-- Table of History Records (Crisp and Non-Blurry) -->
             <div id="tableContainer" class="table-responsive hidden">
                 <table class="history-table">
                     <thead>
                         <tr>
-                            <th style="width: 60px;">ID</th>
+                            <th style="width: 80px; text-align: center;">S.No.</th>
                             <th>News Claim</th>
                             <th style="width: 170px;">Prediction Result</th>
-                            <th style="width: 160px;">Confidence Score</th>
+                            <th style="width: 170px;">Confidence Score</th>
                             <th style="width: 150px;">Date &amp; Time</th>
                             <th style="width: 140px; text-align: center;">Actions</th>
                         </tr>
@@ -155,8 +155,13 @@
                 tableContainer.classList.remove("hidden");
                 clearAllBtn.disabled = false;
 
-                records.forEach((rec) => {
+                records.forEach((rec, index) => {
                     const tr = document.createElement("tr");
+
+                    // S.No. calculation:
+                    // If there are N claims ordered newest first:
+                    // The user's first claim is #01, the second claim is #02, etc.
+                    const serialNumber = "#" + String(records.length - index).padStart(2, "0");
 
                     const isMisleading = rec.result && rec.result.toLowerCase().includes("misleading");
                     const badgeClass = isMisleading ? "badge-misleading" : "badge-verify";
@@ -164,7 +169,7 @@
                     const falsePct = typeof rec.falsePercentage === "number" ? rec.falsePercentage : (100 - truePct);
 
                     tr.innerHTML = `
-                        <td class="table-id-cell">#${rec.id}</td>
+                        <td class="table-id-cell" style="text-align: center;">${serialNumber}</td>
                         <td class="table-claim-text">${escapeHtml(rec.claimText)}</td>
                         <td>
                             <span class="status-badge ${badgeClass}">${escapeHtml(rec.result)}</span>
@@ -173,14 +178,14 @@
                             <span class="pct-pill pct-pill-true">True: ${truePct}%</span>
                             <span class="pct-pill pct-pill-false">False: ${falsePct}%</span>
                         </td>
-                        <td style="font-size: 0.84rem; color: var(--text-muted);">
+                        <td class="table-date-cell">
                             ${formatDateTime(rec.createdAt)}
                         </td>
                         <td style="text-align: center; white-space: nowrap;">
-                            <a href="result.html?id=${rec.id}" class="btn btn-secondary btn-sm" style="padding: 5px 9px;" title="View Full Assessment">
+                            <a href="result.html?id=${rec.id}&sno=${records.length - index}" class="btn btn-secondary btn-sm" style="padding: 5px 10px;" title="View Full Assessment">
                                 View
                             </a>
-                            <button type="button" class="btn btn-danger-outline btn-sm delete-btn" data-id="${rec.id}" style="padding: 5px 9px;">
+                            <button type="button" class="btn btn-danger-outline btn-sm delete-btn" data-id="${rec.id}" style="padding: 5px 10px;">
                                 Delete
                             </button>
                         </td>
@@ -199,7 +204,7 @@
             }
 
             async function handleDeleteRecord(id) {
-                const confirmed = window.confirm(`Are you sure you want to delete claim record #${id} from the database?`);
+                const confirmed = window.confirm(`Are you sure you want to delete this claim from the database?`);
                 if (!confirmed) return;
 
                 hideFeedback();
@@ -213,7 +218,7 @@
                         return;
                     }
 
-                    showFeedback(`Record #${id} deleted from database.`, "success");
+                    showFeedback("Claim deleted successfully from database.", "success");
                     await loadHistory();
                 } catch (e) {
                     showFeedback("Unable to reach server while deleting record.", "error");

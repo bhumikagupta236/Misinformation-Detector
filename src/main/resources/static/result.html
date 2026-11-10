@@ -150,17 +150,18 @@
             const resultExplanation = document.getElementById("resultExplanation");
             const resultTimestamp = document.getElementById("resultTimestamp");
 
-            // Read claim ID from URL query parameters (e.g. result.html?id=5)
+            // Read claim ID and optional S.No. from URL query parameters (e.g. result.html?id=5&sno=1)
             const urlParams = new URLSearchParams(window.location.search);
             const claimId = urlParams.get("id");
+            const snoParam = urlParams.get("sno");
 
             if (!claimId) {
                 loadMostRecentRecord();
             } else {
-                loadRecordById(claimId);
+                loadRecordById(claimId, snoParam);
             }
 
-            async function loadRecordById(id) {
+            async function loadRecordById(id, explicitSno) {
                 try {
                     const response = await fetch(`/api/claims/${id}`);
                     if (!response.ok) {
@@ -168,7 +169,24 @@
                         return;
                     }
                     const claim = await response.json();
-                    renderResult(claim);
+
+                    let sno = explicitSno ? parseInt(explicitSno, 10) : null;
+                    if (!sno) {
+                        // Determine sequential number from user's claim list
+                        try {
+                            const listResp = await fetch("/api/claims");
+                            if (listResp.ok) {
+                                const list = await listResp.json();
+                                if (Array.isArray(list)) {
+                                    const idx = list.findIndex(c => String(c.id) === String(id));
+                                    if (idx !== -1) {
+                                        sno = list.length - idx;
+                                    }
+                                }
+                            }
+                        } catch (ignore) {}
+                    }
+                    renderResult(claim, sno);
                 } catch (e) {
                     showNotFound();
                 }
@@ -183,7 +201,7 @@
                     }
                     const list = await response.json();
                     if (Array.isArray(list) && list.length > 0) {
-                        renderResult(list[0]);
+                        renderResult(list[0], list.length);
                     } else {
                         showNotFound();
                     }
@@ -192,14 +210,15 @@
                 }
             }
 
-            function renderResult(claim) {
+            function renderResult(claim, sno) {
                 resultLoading.classList.add("hidden");
                 notFoundCard.classList.add("hidden");
 
                 const truePct = typeof claim.truePercentage === "number" ? claim.truePercentage : 50;
                 const falsePct = typeof claim.falsePercentage === "number" ? claim.falsePercentage : (100 - truePct);
 
-                recordIdSubtitle.textContent = `Record #${claim.id} • Saved in SQL Database`;
+                const serialText = sno ? ("#" + String(sno).padStart(2, "0")) : ("#01");
+                recordIdSubtitle.textContent = `Claim Assessment ${serialText} • Saved in Database`;
                 resultClaimText.textContent = `"${claim.claimText}"`;
                 resultExplanation.textContent = claim.explanation;
                 resultTimestamp.textContent = `Analyzed on ${formatDateTime(claim.createdAt)}`;

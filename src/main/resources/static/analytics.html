@@ -48,7 +48,7 @@
             </div>
         </div>
 
-        <!-- Metrics Cards Grid -->
+        <!-- Metrics Cards Grid (Crisp with generous padding) -->
         <div class="metrics-grid">
             <div class="metric-card accent">
                 <span class="metric-title">Total Analyzed</span>
@@ -75,14 +75,14 @@
             </div>
         </div>
 
-        <!-- Charts Grid (2 Main Interactive Graphs) -->
+        <!-- Charts Grid (Razor-sharp High-DPI canvas without blurry stretching) -->
         <div class="charts-grid">
             <!-- Pie/Doughnut Chart Card -->
             <div class="chart-card">
                 <h3>Classification Distribution</h3>
                 <p class="section-subtitle">Proportion of Potentially Misleading vs. Reliable claims.</p>
                 <div class="chart-container">
-                    <canvas id="pieChart" width="300" height="260"></canvas>
+                    <canvas id="pieChart"></canvas>
                 </div>
             </div>
 
@@ -91,7 +91,7 @@
                 <h3>Classification Comparison</h3>
                 <p class="section-subtitle">Total count of claims per assessment category.</p>
                 <div class="chart-container">
-                    <canvas id="barChart" width="300" height="260"></canvas>
+                    <canvas id="barChart"></canvas>
                 </div>
             </div>
         </div>
@@ -205,12 +205,12 @@
                 const misleading = stats.misleadingCount || 0;
                 const reliable = stats.reliableCount || 0;
 
-                // If Chart.js loaded via CDN
+                // If Chart.js loaded
                 if (typeof Chart !== "undefined") {
                     renderWithChartJs(misleading, reliable);
                 } else {
-                    // Native HTML5 Canvas Fallback (offline lab safe!)
-                    renderNativeCanvasFallback(misleading, reliable);
+                    // Crisp High-DPI Canvas Fallback
+                    renderHighDpiFallback(misleading, reliable);
                 }
             }
 
@@ -220,6 +220,8 @@
 
                 const ctxPie = document.getElementById("pieChart").getContext("2d");
                 const ctxBar = document.getElementById("barChart").getContext("2d");
+
+                const dpr = Math.max(window.devicePixelRatio || 1, 2);
 
                 // Doughnut / Pie Chart
                 pieChartInstance = new Chart(ctxPie, {
@@ -237,12 +239,19 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        devicePixelRatio: dpr,
                         plugins: {
                             legend: {
                                 position: "bottom",
                                 labels: {
-                                    boxWidth: 14,
-                                    font: { family: "-apple-system, Segoe UI, Roboto", size: 12 }
+                                    boxWidth: 16,
+                                    padding: 16,
+                                    color: "#1e1b4b",
+                                    font: {
+                                        family: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif",
+                                        size: 13,
+                                        weight: "600"
+                                    }
                                 }
                             }
                         }
@@ -257,7 +266,7 @@
                         datasets: [{
                             label: "Total Count",
                             data: [misleading, reliable],
-                            backgroundColor: ["rgba(220, 38, 38, 0.85)", "rgba(22, 163, 74, 0.85)"],
+                            backgroundColor: ["rgba(220, 38, 38, 0.9)", "rgba(22, 163, 74, 0.9)"],
                             borderColor: ["#dc2626", "#16a34a"],
                             borderWidth: 1.5,
                             borderRadius: 6
@@ -266,15 +275,23 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        devicePixelRatio: dpr,
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                ticks: { stepSize: 1, font: { size: 11 } },
+                                ticks: {
+                                    stepSize: 1,
+                                    color: "#475569",
+                                    font: { family: "-apple-system, Segoe UI, Roboto", size: 12, weight: "600" }
+                                },
                                 grid: { color: "#f1f5f9" }
                             },
                             x: {
                                 grid: { display: false },
-                                ticks: { font: { size: 12, weight: 600 } }
+                                ticks: {
+                                    color: "#1e1b4b",
+                                    font: { family: "-apple-system, Segoe UI, Roboto", size: 13, weight: "700" }
+                                }
                             }
                         },
                         plugins: {
@@ -284,15 +301,30 @@
                 });
             }
 
-            function renderNativeCanvasFallback(misleading, reliable) {
-                // Native Pie Chart
-                const pieCanvas = document.getElementById("pieChart");
-                const pCtx = pieCanvas.getContext("2d");
-                pCtx.clearRect(0, 0, pieCanvas.width, pieCanvas.height);
+            function getSharpCanvas(canvasId) {
+                const canvas = document.getElementById(canvasId);
+                const rect = canvas.parentElement.getBoundingClientRect();
+                const dpr = Math.max(window.devicePixelRatio || 1, 2);
+                const width = rect.width > 50 ? rect.width : 340;
+                const height = 270;
 
+                canvas.width = Math.round(width * dpr);
+                canvas.height = Math.round(height * dpr);
+                canvas.style.width = `${width}px`;
+                canvas.style.height = `${height}px`;
+
+                const ctx = canvas.getContext("2d");
+                ctx.scale(dpr, dpr);
+                return { ctx, width, height };
+            }
+
+            function renderHighDpiFallback(misleading, reliable) {
+                // Crisp Native Pie Chart
+                const pie = getSharpCanvas("pieChart");
+                const pCtx = pie.ctx;
                 const total = misleading + reliable;
-                const centerX = pieCanvas.width / 2;
-                const centerY = pieCanvas.height / 2;
+                const centerX = pie.width / 2;
+                const centerY = pie.height / 2 - 15;
                 const radius = 80;
 
                 if (total === 0) {
@@ -321,30 +353,60 @@
                 pCtx.closePath();
                 pCtx.fill();
 
-                // Native Bar Chart
-                const barCanvas = document.getElementById("barChart");
-                const bCtx = barCanvas.getContext("2d");
-                bCtx.clearRect(0, 0, barCanvas.width, barCanvas.height);
+                // Inner donut hole for modern aesthetic
+                pCtx.fillStyle = "#ffffff";
+                pCtx.beginPath();
+                pCtx.arc(centerX, centerY, radius * 0.55, 0, 2 * Math.PI);
+                pCtx.fill();
 
+                // Crisp Legend below
+                pCtx.font = "bold 13px -apple-system, Segoe UI, Roboto, sans-serif";
+                pCtx.fillStyle = "#dc2626";
+                pCtx.fillRect(centerX - 120, pie.height - 25, 12, 12);
+                pCtx.fillStyle = "#1e1b4b";
+                pCtx.fillText(`Misleading (${misleading})`, centerX - 102, pie.height - 15);
+
+                pCtx.fillStyle = "#16a34a";
+                pCtx.fillRect(centerX + 30, pie.height - 25, 12, 12);
+                pCtx.fillStyle = "#1e1b4b";
+                pCtx.fillText(`Reliable (${reliable})`, centerX + 48, pie.height - 15);
+
+                // Crisp Native Bar Chart
+                const bar = getSharpCanvas("barChart");
+                const bCtx = bar.ctx;
                 const maxVal = Math.max(1, misleading, reliable);
-                const barWidth = 60;
-                const baseLineY = barCanvas.height - 40;
+                const barWidth = 68;
+                const baseLineY = bar.height - 50;
 
                 const misHeight = (misleading / maxVal) * 150;
                 const relHeight = (reliable / maxVal) * 150;
 
+                const col1X = bar.width * 0.28;
+                const col2X = bar.width * 0.62;
+
+                // Grid line
+                bCtx.strokeStyle = "#e2e8f0";
+                bCtx.lineWidth = 1;
+                bCtx.beginPath();
+                bCtx.moveTo(30, baseLineY);
+                bCtx.lineTo(bar.width - 30, baseLineY);
+                bCtx.stroke();
+
                 // Misleading bar
                 bCtx.fillStyle = "#dc2626";
-                bCtx.fillRect(60, baseLineY - misHeight, barWidth, misHeight);
+                bCtx.fillRect(col1X - barWidth / 2, baseLineY - misHeight, barWidth, misHeight);
                 bCtx.fillStyle = "#1e1b4b";
-                bCtx.font = "12px sans-serif";
-                bCtx.fillText(`Misleading (${misleading})`, 40, baseLineY + 20);
+                bCtx.font = "bold 13px -apple-system, Segoe UI, Roboto, sans-serif";
+                bCtx.textAlign = "center";
+                bCtx.fillText(String(misleading), col1X, baseLineY - misHeight - 8);
+                bCtx.fillText("Misleading", col1X, baseLineY + 22);
 
                 // Reliable bar
                 bCtx.fillStyle = "#16a34a";
-                bCtx.fillRect(170, baseLineY - relHeight, barWidth, relHeight);
+                bCtx.fillRect(col2X - barWidth / 2, baseLineY - relHeight, barWidth, relHeight);
                 bCtx.fillStyle = "#1e1b4b";
-                bCtx.fillText(`Reliable (${reliable})`, 165, baseLineY + 20);
+                bCtx.fillText(String(reliable), col2X, baseLineY - relHeight - 8);
+                bCtx.fillText("Reliable", col2X, baseLineY + 22);
             }
 
             function showFeedback(msg, type) {
