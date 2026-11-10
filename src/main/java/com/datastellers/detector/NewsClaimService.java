@@ -2,14 +2,19 @@ package com.datastellers.detector;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Service class containing the baseline keyword-based misinformation analysis logic,
- * True/False percentage scoring, and database CRUD methods.
+ * True/False percentage scoring, analytics computation, and database CRUD methods.
  */
 @Service
 public class NewsClaimService {
@@ -58,31 +63,65 @@ public class NewsClaimService {
     }
 
     /**
-     * Ensures the news_claims table exists in the database.
+     * Ensures the database tables exist and are properly migrated.
      */
     private void ensureTableExists() {
         if (!tableChecked) {
-            String createTableSql = """
-                    CREATE TABLE IF NOT EXISTS news_claims (
-                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                        claim_text TEXT NOT NULL,
-                        result VARCHAR(100) NOT NULL,
-                        true_percentage INT NOT NULL DEFAULT 50,
-                        false_percentage INT NOT NULL DEFAULT 50,
-                        explanation TEXT NOT NULL,
-                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """;
-            jdbcTemplate.execute(createTableSql);
-            tableChecked = true;
+            try {
+                // 1. Create users table
+                String createUsersSql = """
+                        CREATE TABLE IF NOT EXISTS users (
+                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            full_name VARCHAR(150) NOT NULL,
+                            email VARCHAR(150) NOT NULL UNIQUE,
+                            password_hash VARCHAR(255) NOT NULL,
+                            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """;
+                jdbcTemplate.execute(createUsersSql);
+
+                // 2. Create news_claims table
+                String createClaimsSql = """
+                        CREATE TABLE IF NOT EXISTS news_claims (
+                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            user_id BIGINT NULL,
+                            claim_text TEXT NOT NULL,
+                            result VARCHAR(100) NOT NULL,
+                            true_percentage INT NOT NULL DEFAULT 50,
+                            false_percentage INT NOT NULL DEFAULT 50,
+                            explanation TEXT NOT NULL,
+                            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """;
+                jdbcTemplate.execute(createClaimsSql);
+
+                // 3. Add user_id column if table was previously created without it
+                try {
+                    jdbcTemplate.execute("ALTER TABLE news_claims ADD COLUMN IF NOT EXISTS user_id BIGINT NULL");
+                } catch (Exception ignored) {
+                    // Column already exists or syntax variation
+                }
+
+                tableChecked = true;
+            } catch (Exception e) {
+                // Allow application to proceed; JPA will also validate tables
+                tableChecked = true;
+            }
         }
     }
 
     /**
-     * Analyzes a news claim using keyword scoring, calculates True/False percentages,
-     * and saves the result in the database.
+     * Overload for analyzing and saving without a logged-in user.
      */
     public NewsClaim analyzeAndSaveClaim(String claimText) {
+        return analyzeAndSaveClaim(claimText, null);
+    }
+
+    /**
+     * Analyzes a news claim using keyword scoring, calculates True/False percentages,
+     * and saves the record linked to the user in the database.
+     */
+    public NewsClaim analyzeAndSaveClaim(String claimText, Long userId) {
         String cleanedClaim = claimText.trim();
         String lowerCaseClaim = cleanedClaim.toLowerCase();
 
@@ -150,6 +189,7 @@ public class NewsClaimService {
         // 5. Create the entity and save it in the database
         ensureTableExists();
         NewsClaim newsClaim = new NewsClaim(
+                userId,
                 cleanedClaim,
                 result,
                 truePercentage,
@@ -173,21 +213,58 @@ public class NewsClaimService {
     }
 
     /**
+     * Retrieves a single claim by its primary key ID.
+     */
+    public Optional<NewsClaim> getClaimById(Long id) {
+        ensureTableExists();
+        return newsClaimRepository.findById(id);
+    }
+
+    /**
      * Retrieves all saved analysis records from the database, ordered newest first.
      */
     public List<NewsClaim> getAllHistory() {
+        return getAllHistory(null);
+    }
+
+    /**
+     * Retrieves history records, filtered by user ID if provided.
+     */
+    public List<NewsClaim> getAllHistory(Long userId) {
         ensureTableExists();
+        if (userId != null) {
+            List<NewsClaim> userClaims = newsClaimRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
+            if (!userClaims.isEmpty()) {
+                return userClaims;
+            }
+        }
+        // If no user claims found or public guest, return general history
         return newsClaimRepository.findAllByOrderByCreatedAtDesc();
     }
 
     /**
-     * Deletes a single history record by ID if it exists.
+     * Deletes a single history record by ID.
      */
     public boolean deleteClaimById(Long id) {
+        return deleteClaimById(id, null);
+    }
+
+    /**
+     * Deletes a single history record by ID, verifying user ownership if userId is supplied.
+     */
+    public boolean deleteClaimById(Long id, Long userId) {
         ensureTableExists();
-        if (!newsClaimRepository.existsById(id)) {
+        Optional<NewsClaim> optional = newsClaimRepository.findById(id);
+        if (optional.isEmpty()) {
             return false;
         }
+
+        NewsClaim claim = optional.get();
+        // If a specific user is logged in and the claim belongs to a different user, prevent unauthorized delete
+        if (userId != null && claim.getUserId() != null && !userId.equals(claim.getUserId())) {
+            return false;
+        }
+
         newsClaimRepository.deleteById(id);
         return true;
     }
@@ -196,7 +273,68 @@ public class NewsClaimService {
      * Deletes all history records from the database table.
      */
     public void clearAllHistory() {
+        clearAllHistory(null);
+    }
+
+    /**
+     * Deletes history records for a specific user (or all if userId is null).
+     */
+    @Transactional
+    public void clearAllHistory(Long userId) {
         ensureTableExists();
-        newsClaimRepository.deleteAll();
+        if (userId != null) {
+            newsClaimRepository.deleteAllByUserId(userId);
+        } else {
+            newsClaimRepository.deleteAll();
+        }
+    }
+
+    /**
+     * Calculates analytics statistics from actual database records.
+     */
+    public Map<String, Object> getAnalytics(Long userId) {
+        ensureTableExists();
+        List<NewsClaim> claims = (userId != null)
+                ? newsClaimRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+                : newsClaimRepository.findAllByOrderByCreatedAtDesc();
+
+        // If user has no personal claims yet, fallback to all claims for a rich visualization
+        if (claims.isEmpty() && userId != null) {
+            claims = newsClaimRepository.findAllByOrderByCreatedAtDesc();
+        }
+
+        long totalClaims = claims.size();
+        long misleadingCount = 0;
+        long reliableCount = 0;
+        double sumTrue = 0;
+        double sumFalse = 0;
+
+        for (NewsClaim claim : claims) {
+            if ("Potentially Misleading".equalsIgnoreCase(claim.getResult())) {
+                misleadingCount++;
+            } else {
+                reliableCount++;
+            }
+            sumTrue += claim.getTruePercentage();
+            sumFalse += claim.getFalsePercentage();
+        }
+
+        double avgTrue = totalClaims > 0 ? Math.round((sumTrue / totalClaims) * 10.0) / 10.0 : 0.0;
+        double avgFalse = totalClaims > 0 ? Math.round((sumFalse / totalClaims) * 10.0) / 10.0 : 0.0;
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalClaims", totalClaims);
+        stats.put("misleadingCount", misleadingCount);
+        stats.put("reliableCount", reliableCount);
+        stats.put("averageTruePercentage", avgTrue);
+        stats.put("averageFalsePercentage", avgFalse);
+
+        // Chart data structures for Chart.js
+        List<String> labels = Arrays.asList("Potentially Misleading", "Needs Verification (Reliable)");
+        List<Long> counts = Arrays.asList(misleadingCount, reliableCount);
+        stats.put("chartLabels", labels);
+        stats.put("chartCounts", counts);
+
+        return stats;
     }
 }

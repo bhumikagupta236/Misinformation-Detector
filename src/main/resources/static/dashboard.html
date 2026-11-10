@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard – Trust Guide Misinformation Detector</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Header with Navigation -->
+    <header class="site-header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="brand-link">
+                <div class="shield-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="app-title">Trust Guide</h1>
+                    <p class="app-tagline">Think before you trust.</p>
+                </div>
+            </a>
+            <nav id="headerNav" class="nav-links">
+                <!-- Dynamically populated by auth.js -->
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container main-content">
+        <!-- Status / Alert Banner for Feedback Messages -->
+        <div id="feedbackBanner" class="feedback-banner hidden" role="alert"></div>
+
+        <!-- Welcome Banner for Logged-In User -->
+        <div class="card" style="padding: 18px 24px; background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%); border-left: 4px solid var(--accent-primary);">
+            <h2 id="welcomeHeading" style="font-size: 1.25rem; color: var(--text-primary); margin-bottom: 4px;">Welcome to Your Dashboard</h2>
+            <p id="welcomeSubtext" style="font-size: 0.92rem; color: var(--text-secondary);">
+                Ready to evaluate news claims, viral headlines, or social forwards.
+            </p>
+        </div>
+
+        <!-- Claim Input Card -->
+        <section class="card analyzer-card" aria-labelledby="analyzeHeading">
+            <div class="card-header">
+                <h2 id="analyzeHeading">Analyze a News Claim or Headline</h2>
+                <p class="section-subtitle">
+                    Paste a news headline, social media forward, or short paragraph below to calculate its True / False indicator percentage.
+                </p>
+            </div>
+
+            <form id="analyzeForm" novalidate>
+                <div class="form-group">
+                    <label for="claimInput" class="form-label">News Claim Text</label>
+                    <textarea
+                        id="claimInput"
+                        class="claim-textarea"
+                        rows="4"
+                        maxlength="3000"
+                        placeholder="Example: Breaking! The shocking truth they don't want you to know about this miracle cure..."
+                        required
+                    ></textarea>
+                    <div class="input-meta">
+                        <div class="sample-buttons">
+                            <span class="sample-label">Try an example:</span>
+                            <button type="button" class="chip-btn" data-sample="SHOCKING TRUTH: Secret revealed about a 100% guaranteed miracle cure! Share immediately!!!">
+                                Sensational Claim
+                            </button>
+                            <button type="button" class="chip-btn" data-sample="According to an official report published by the Ministry of Education, university exams will begin next month.">
+                                Official News Headline
+                            </button>
+                        </div>
+                        <span id="charCount" class="char-count">0 / 3000</span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" id="analyzeBtn" class="btn btn-primary">
+                        <span id="analyzeBtnText">Analyze &amp; View Result</span>
+                        <span id="analyzeSpinner" class="spinner hidden" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" id="resetInputBtn" class="btn btn-secondary">
+                        Clear Text
+                    </button>
+                </div>
+            </form>
+
+            <!-- Quick Navigation Shortcuts -->
+            <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="history.html" class="btn btn-secondary btn-sm">
+                    View My History &rarr;
+                </a>
+                <a href="analytics.html" class="btn btn-secondary btn-sm">
+                    View Analytics &amp; Charts &rarr;
+                </a>
+            </div>
+
+            <!-- Disclaimer Note -->
+            <div class="disclaimer-box">
+                <strong>Educational Note:</strong> This tool uses a baseline keyword-based heuristic approach in Java to calculate preliminary True (Reliability) and False (Misleading Risk) indicator percentages. It is a college PBL demonstration, not a trained machine-learning fact-checking model.
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <p>Trust Guide – Misinformation Detector &bull; Built with Java, Spring Boot &amp; SQL Database</p>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Require authentication to access dashboard
+            const user = await initAuth({ requireAuth: true });
+            if (user) {
+                const welcomeHeading = document.getElementById("welcomeHeading");
+                const welcomeSubtext = document.getElementById("welcomeSubtext");
+                welcomeHeading.textContent = `Welcome back, ${escapeHtml(user.fullName)}!`;
+                welcomeSubtext.textContent = `Account: ${escapeHtml(user.email)} • Analyze any news claim to see the assessment and save to your history.`;
+            }
+
+            const analyzeForm = document.getElementById("analyzeForm");
+            const claimInput = document.getElementById("claimInput");
+            const charCount = document.getElementById("charCount");
+            const analyzeBtn = document.getElementById("analyzeBtn");
+            const analyzeBtnText = document.getElementById("analyzeBtnText");
+            const analyzeSpinner = document.getElementById("analyzeSpinner");
+            const resetInputBtn = document.getElementById("resetInputBtn");
+            const feedbackBanner = document.getElementById("feedbackBanner");
+
+            // Character counter
+            claimInput.addEventListener("input", () => {
+                charCount.textContent = `${claimInput.value.length} / 3000`;
+            });
+
+            // Sample buttons
+            document.querySelectorAll(".chip-btn").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    claimInput.value = btn.getAttribute("data-sample");
+                    charCount.textContent = `${claimInput.value.length} / 3000`;
+                    claimInput.focus();
+                });
+            });
+
+            // Reset input
+            resetInputBtn.addEventListener("click", () => {
+                claimInput.value = "";
+                charCount.textContent = "0 / 3000";
+                hideFeedback();
+                claimInput.focus();
+            });
+
+            // Submit analysis
+            analyzeForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                hideFeedback();
+
+                const claimText = claimInput.value.trim();
+                if (!claimText) {
+                    showFeedback("Please enter a news claim or headline before analyzing.", "error");
+                    claimInput.focus();
+                    return;
+                }
+
+                setLoading(true);
+
+                try {
+                    const response = await fetch("/api/claims/analyze", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ claimText })
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        showFeedback(data.error || "Failed to analyze claim.", "error");
+                        return;
+                    }
+
+                    // Successfully analyzed and saved! Redirect to Result Display Page
+                    showFeedback("Claim analyzed! Opening result page...", "success");
+                    setTimeout(() => {
+                        window.location.href = `result.html?id=${data.id}`;
+                    }, 400);
+                } catch (err) {
+                    showFeedback("Unable to reach the server. Please verify the application is running.", "error");
+                } finally {
+                    setLoading(false);
+                }
+            });
+
+            function setLoading(loading) {
+                analyzeBtn.disabled = loading;
+                if (loading) {
+                    analyzeBtnText.textContent = "Analyzing...";
+                    analyzeSpinner.classList.remove("hidden");
+                } else {
+                    analyzeBtnText.textContent = "Analyze & View Result";
+                    analyzeSpinner.classList.add("hidden");
+                }
+            }
+
+            function showFeedback(msg, type) {
+                feedbackBanner.textContent = msg;
+                feedbackBanner.className = "feedback-banner " + (type === "success" ? "feedback-success" : "feedback-error");
+                feedbackBanner.classList.remove("hidden");
+            }
+
+            function hideFeedback() {
+                feedbackBanner.classList.add("hidden");
+                feedbackBanner.textContent = "";
+            }
+        });
+    </script>
+</body>
+</html>

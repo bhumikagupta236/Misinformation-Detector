@@ -1,5 +1,6 @@
 package com.datastellers.detector;
 
+import jakarta.servlet.http.HttpSession;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,9 +18,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * REST Controller that handles HTTP requests from the frontend webpage.
+ * REST Controller that handles HTTP requests for claim analysis, history, and analytics.
  */
 @RestController
 @RequestMapping("/api/claims")
@@ -35,10 +37,14 @@ public class NewsClaimController {
 
     /**
      * POST /api/claims/analyze
-     * Validates a news claim, analyzes it, saves it in MySQL, and returns the saved record.
+     * Validates a news claim, analyzes it, associates it with logged-in user if available,
+     * saves it in the database, and returns the saved record.
      */
     @PostMapping("/analyze")
-    public ResponseEntity<?> analyzeClaim(@RequestBody(required = false) Map<String, String> requestBody) {
+    public ResponseEntity<?> analyzeClaim(
+            @RequestBody(required = false) Map<String, String> requestBody,
+            HttpSession session
+    ) {
         if (requestBody == null || !requestBody.containsKey("claimText")) {
             return buildErrorResponse("Please enter a news claim or headline before analyzing.", HttpStatus.BAD_REQUEST);
         }
@@ -55,33 +61,54 @@ public class NewsClaimController {
             );
         }
 
-        NewsClaim savedClaim = newsClaimService.analyzeAndSaveClaim(claimText);
+        Long userId = (session != null) ? (Long) session.getAttribute(AuthController.SESSION_USER_ID) : null;
+        NewsClaim savedClaim = newsClaimService.analyzeAndSaveClaim(claimText, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedClaim);
     }
 
     /**
      * GET /api/claims
-     * Retrieves all previously analyzed claims from MySQL, newest first.
+     * Retrieves saved claims from database, newest first. If user is logged in, filters by user.
      */
     @GetMapping
-    public ResponseEntity<List<NewsClaim>> getAllClaims() {
-        List<NewsClaim> historyList = newsClaimService.getAllHistory();
+    public ResponseEntity<List<NewsClaim>> getAllClaims(HttpSession session) {
+        Long userId = (session != null) ? (Long) session.getAttribute(AuthController.SESSION_USER_ID) : null;
+        List<NewsClaim> historyList = newsClaimService.getAllHistory(userId);
         return ResponseEntity.ok(historyList);
     }
 
     /**
-     * DELETE /api/claims/{id}
-     * Deletes a specific claim record from MySQL by its ID.
+     * GET /api/claims/{id}
+     * Retrieves a single analyzed claim record by its ID. Used by the Result Display Page.
      */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteClaimById(@PathVariable("id") Long id) {
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getClaimById(@PathVariable("id") Long id) {
         if (id == null || id <= 0) {
             return buildErrorResponse("Invalid record ID provided.", HttpStatus.BAD_REQUEST);
         }
 
-        boolean deleted = newsClaimService.deleteClaimById(id);
+        Optional<NewsClaim> claimOptional = newsClaimService.getClaimById(id);
+        if (claimOptional.isEmpty()) {
+            return buildErrorResponse("Claim record with ID " + id + " was not found.", HttpStatus.NOT_FOUND);
+        }
+
+        return ResponseEntity.ok(claimOptional.get());
+    }
+
+    /**
+     * DELETE /api/claims/{id}
+     * Deletes a specific claim record from the database by its ID.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteClaimById(@PathVariable("id") Long id, HttpSession session) {
+        if (id == null || id <= 0) {
+            return buildErrorResponse("Invalid record ID provided.", HttpStatus.BAD_REQUEST);
+        }
+
+        Long userId = (session != null) ? (Long) session.getAttribute(AuthController.SESSION_USER_ID) : null;
+        boolean deleted = newsClaimService.deleteClaimById(id, userId);
         if (!deleted) {
-            return buildErrorResponse("History record with ID " + id + " was not found.", HttpStatus.NOT_FOUND);
+            return buildErrorResponse("History record with ID " + id + " was not found or could not be deleted.", HttpStatus.NOT_FOUND);
         }
 
         Map<String, String> response = new HashMap<>();
@@ -91,15 +118,27 @@ public class NewsClaimController {
 
     /**
      * DELETE /api/claims
-     * Clears all saved claim records from MySQL.
+     * Clears saved claim records from the database.
      */
     @DeleteMapping
-    public ResponseEntity<?> clearAllClaims() {
-        newsClaimService.clearAllHistory();
+    public ResponseEntity<?> clearAllClaims(HttpSession session) {
+        Long userId = (session != null) ? (Long) session.getAttribute(AuthController.SESSION_USER_ID) : null;
+        newsClaimService.clearAllHistory(userId);
 
         Map<String, String> response = new HashMap<>();
-        response.put("message", "All analysis history has been cleared.");
+        response.put("message", "Analysis history has been cleared.");
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/claims/analytics
+     * Computes and returns real statistics and chart metrics from the database records.
+     */
+    @GetMapping("/analytics")
+    public ResponseEntity<?> getAnalytics(HttpSession session) {
+        Long userId = (session != null) ? (Long) session.getAttribute(AuthController.SESSION_USER_ID) : null;
+        Map<String, Object> stats = newsClaimService.getAnalytics(userId);
+        return ResponseEntity.ok(stats);
     }
 
     /**
@@ -111,12 +150,12 @@ public class NewsClaimController {
     }
 
     /**
-     * Handles MySQL connection or database query failures with a friendly message.
+     * Handles database query failures with a friendly message.
      */
     @ExceptionHandler({DataAccessException.class, CannotCreateTransactionException.class})
     public ResponseEntity<Map<String, String>> handleDatabaseException(Exception ex) {
         return buildErrorResponse(
-                "Database connection error: Unable to reach the MySQL database (trust_guide). Please verify that MySQL Server is running and your credentials in application.properties are correct.",
+                "Database error: Unable to complete the operation. Please verify database connectivity.",
                 HttpStatus.SERVICE_UNAVAILABLE
         );
     }

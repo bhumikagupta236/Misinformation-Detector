@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * Entity class representing a single news claim record stored in the database.
- * Maps to the "news_claims" table in the "trust_guide" database.
+ * Maps to the "news_claims" table in the database.
  */
 @Entity
 @Table(name = "news_claims")
@@ -19,6 +19,9 @@ public class NewsClaim {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "claim_text", columnDefinition = "TEXT", nullable = false)
     private String claimText;
@@ -42,7 +45,7 @@ public class NewsClaim {
     public NewsClaim() {
     }
 
-    // Parameterized constructor for creating a new claim record
+    // Parameterized constructor for claims without specific user
     public NewsClaim(
             String claimText,
             String result,
@@ -51,6 +54,20 @@ public class NewsClaim {
             String explanation,
             LocalDateTime createdAt
     ) {
+        this(null, claimText, result, truePercentage, falsePercentage, explanation, createdAt);
+    }
+
+    // Parameterized constructor including user ID
+    public NewsClaim(
+            Long userId,
+            String claimText,
+            String result,
+            int truePercentage,
+            int falsePercentage,
+            String explanation,
+            LocalDateTime createdAt
+    ) {
+        this.userId = userId;
         this.claimText = claimText;
         this.result = result;
         this.truePercentage = truePercentage;
@@ -65,6 +82,14 @@ public class NewsClaim {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getClaimText() {

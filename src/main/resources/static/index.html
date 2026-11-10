@@ -10,7 +10,7 @@
     <!-- Top Header -->
     <header class="site-header">
         <div class="container header-content">
-            <div class="brand">
+            <a href="index.html" class="brand-link">
                 <div class="shield-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -21,11 +21,17 @@
                     <h1 class="app-title">Trust Guide</h1>
                     <p class="app-tagline">Think before you trust.</p>
                 </div>
-            </div>
+            </a>
             <div class="header-badges">
                 <span id="dbStatusBadge" class="db-badge db-connected">Database Connected</span>
                 <span class="project-badge">Misinformation Detector</span>
             </div>
+            <nav id="headerNav" class="nav-links">
+                <!-- Dynamically populated by auth.js -->
+                <a href="index.html" class="nav-link active">Home</a>
+                <a href="login.html" class="nav-link">Login</a>
+                <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+            </nav>
         </div>
     </header>
 
@@ -166,6 +172,12 @@
         </div>
     </footer>
 
+    <script src="auth.js"></script>
     <script src="script.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            initAuth();
+        });
+    </script>
 </body>
 </html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics – Trust Guide Misinformation Detector</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Top Header with Navigation -->
+    <header class="site-header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="brand-link">
+                <div class="shield-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="app-title">Trust Guide</h1>
+                    <p class="app-tagline">Think before you trust.</p>
+                </div>
+            </a>
+            <nav id="headerNav" class="nav-links">
+                <!-- Dynamically populated by auth.js -->
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container main-content">
+        <!-- Status / Alert Banner for Feedback Messages -->
+        <div id="feedbackBanner" class="feedback-banner hidden" role="alert"></div>
+
+        <!-- Section Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 1.4rem; color: var(--text-primary); margin-bottom: 4px;">Analytics &amp; Data Insights</h2>
+                <p class="section-subtitle">Real-time statistics computed by the Java backend from stored SQL database records.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" id="refreshAnalyticsBtn" class="btn btn-secondary btn-sm">Refresh Data</button>
+                <a href="dashboard.html" class="btn btn-primary btn-sm">+ Analyze Claim</a>
+            </div>
+        </div>
+
+        <!-- Metrics Cards Grid -->
+        <div class="metrics-grid">
+            <div class="metric-card accent">
+                <span class="metric-title">Total Analyzed</span>
+                <span id="metricTotal" class="metric-value">0</span>
+                <span class="metric-sub">Stored in SQL database</span>
+            </div>
+
+            <div class="metric-card false-metric">
+                <span class="metric-title">Potentially Misleading</span>
+                <span id="metricMisleading" class="metric-value">0</span>
+                <span id="metricMisleadingPct" class="metric-sub">0% of total claims</span>
+            </div>
+
+            <div class="metric-card true-metric">
+                <span class="metric-title">Needs Verification (Reliable)</span>
+                <span id="metricReliable" class="metric-value">0</span>
+                <span id="metricReliablePct" class="metric-sub">0% of total claims</span>
+            </div>
+
+            <div class="metric-card info-metric">
+                <span class="metric-title">Avg. Reliability Score</span>
+                <span id="metricAvgReliability" class="metric-value">0%</span>
+                <span class="metric-sub">Across all claims</span>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+            <!-- Pie Chart Card -->
+            <div class="chart-card">
+                <h3>Classification Distribution</h3>
+                <p class="section-subtitle">Percentage proportion of Misleading vs. Reliable claims.</p>
+                <div class="chart-container">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Bar Chart Card -->
+            <div class="chart-card">
+                <h3>Classification Comparison</h3>
+                <p class="section-subtitle">Total count of claims per assessment category.</p>
+                <div class="chart-container">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Explanatory Note -->
+        <div class="disclaimer-box">
+            <strong>Data Source:</strong> All metrics, percentages, and graph distributions above are generated dynamically by <code>NewsClaimService.java</code> and <code>/api/claims/analytics</code> directly from records stored in the database.
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <p>Trust Guide – Misinformation Detector &bull; Built with Java, Spring Boot &amp; SQL Database</p>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            await initAuth({ requireAuth: true });
+
+            const refreshBtn = document.getElementById("refreshAnalyticsBtn");
+            const metricTotal = document.getElementById("metricTotal");
+            const metricMisleading = document.getElementById("metricMisleading");
+            const metricMisleadingPct = document.getElementById("metricMisleadingPct");
+            const metricReliable = document.getElementById("metricReliable");
+            const metricReliablePct = document.getElementById("metricReliablePct");
+            const metricAvgReliability = document.getElementById("metricAvgReliability");
+            const feedbackBanner = document.getElementById("feedbackBanner");
+
+            let pieChartInstance = null;
+            let barChartInstance = null;
+
+            refreshBtn.addEventListener("click", () => {
+                loadAnalytics();
+            });
+
+            loadAnalytics();
+
+            async function loadAnalytics() {
+                try {
+                    const response = await fetch("/api/claims/analytics");
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        showFeedback("Unable to load analytics from database.", "error");
+                        return;
+                    }
+
+                    renderMetrics(data);
+                    renderCharts(data);
+                } catch (e) {
+                    showFeedback("Error connecting to server for analytics.", "error");
+                }
+            }
+
+            function renderMetrics(stats) {
+                const total = stats.totalClaims || 0;
+                const misleading = stats.misleadingCount || 0;
+                const reliable = stats.reliableCount || 0;
+                const avgTrue = stats.averageTruePercentage || 0;
+
+                metricTotal.textContent = total;
+                metricMisleading.textContent = misleading;
+                metricReliable.textContent = reliable;
+                metricAvgReliability.textContent = `${avgTrue}%`;
+
+                const misleadingPct = total > 0 ? Math.round((misleading / total) * 100) : 0;
+                const reliablePct = total > 0 ? Math.round((reliable / total) * 100) : 0;
+
+                metricMisleadingPct.textContent = `${misleadingPct}% of total claims`;
+                metricReliablePct.textContent = `${reliablePct}% of total claims`;
+            }
+
+            function renderCharts(stats) {
+                const misleading = stats.misleadingCount || 0;
+                const reliable = stats.reliableCount || 0;
+
+                // Check if Chart.js is available
+                if (typeof Chart === "undefined") {
+                    console.warn("Chart.js not loaded. Showing summary numbers.");
+                    return;
+                }
+
+                // Destroy previous instances if refreshing
+                if (pieChartInstance) pieChartInstance.destroy();
+                if (barChartInstance) barChartInstance.destroy();
+
+                const ctxPie = document.getElementById("pieChart").getContext("2d");
+                const ctxBar = document.getElementById("barChart").getContext("2d");
+
+                // Pie Chart
+                pieChartInstance = new Chart(ctxPie, {
+                    type: "doughnut",
+                    data: {
+                        labels: ["Potentially Misleading", "Needs Verification (Reliable)"],
+                        datasets: [{
+                            data: [misleading, reliable],
+                            backgroundColor: [
+                                "#dc2626", // Red for misleading
+                                "#16a34a"  // Green for reliable
+                            ],
+                            borderColor: "#ffffff",
+                            borderWidth: 2,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: "bottom",
+                                labels: {
+                                    boxWidth: 14,
+                                    font: { family: "-apple-system, Segoe UI, Roboto", size: 12 }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Bar Chart
+                barChartInstance = new Chart(ctxBar, {
+                    type: "bar",
+                    data: {
+                        labels: ["Potentially Misleading", "Needs Verification"],
+                        datasets: [{
+                            label: "Number of Claims",
+                            data: [misleading, reliable],
+                            backgroundColor: [
+                                "rgba(220, 38, 38, 0.85)",
+                                "rgba(22, 163, 74, 0.85)"
+                            ],
+                            borderColor: [
+                                "#dc2626",
+                                "#16a34a"
+                            ],
+                            borderWidth: 1.5,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1,
+                                    font: { family: "-apple-system, Segoe UI, Roboto", size: 11 }
+                                },
+                                grid: { color: "#f1f5f9" }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { family: "-apple-system, Segoe UI, Roboto", size: 12 } }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+
+            function showFeedback(msg, type) {
+                feedbackBanner.textContent = msg;
+                feedbackBanner.className = "feedback-banner " + (type === "success" ? "feedback-success" : "feedback-error");
+                feedbackBanner.classList.remove("hidden");
+            }
+        });
+    </script>
+</body>
+</html>

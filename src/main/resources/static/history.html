@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis History – Trust Guide Misinformation Detector</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Header with Navigation -->
+    <header class="site-header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="brand-link">
+                <div class="shield-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="app-title">Trust Guide</h1>
+                    <p class="app-tagline">Think before you trust.</p>
+                </div>
+            </a>
+            <nav id="headerNav" class="nav-links">
+                <!-- Dynamically populated by auth.js -->
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container main-content">
+        <!-- Status / Alert Banner for Feedback Messages -->
+        <div id="feedbackBanner" class="feedback-banner hidden" role="alert"></div>
+
+        <!-- History Card -->
+        <section class="card history-card" aria-labelledby="historyHeading">
+            <div class="history-header">
+                <div>
+                    <h2 id="historyHeading">Analysis History</h2>
+                    <p class="section-subtitle">All previously analyzed news claims stored in the SQL database (newest first).</p>
+                </div>
+                <div class="history-actions">
+                    <a href="dashboard.html" class="btn btn-primary btn-sm">
+                        + Analyze New Claim
+                    </a>
+                    <button type="button" id="refreshBtn" class="btn btn-secondary btn-sm">
+                        Refresh
+                    </button>
+                    <button type="button" id="clearAllBtn" class="btn btn-danger-outline btn-sm">
+                        Clear All History
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading indicator for history -->
+            <div id="historyLoading" class="history-loading">
+                <span class="spinner spinner-dark" aria-hidden="true"></span>
+                <span>Loading saved records from database...</span>
+            </div>
+
+            <!-- Empty state -->
+            <div id="emptyHistoryState" class="empty-state hidden">
+                <h3 style="color: var(--text-primary); margin-bottom: 6px;">No Analysis Records Found</h3>
+                <p style="margin-bottom: 14px;">You haven't analyzed any news claims yet. Submit your first claim on the dashboard!</p>
+                <a href="dashboard.html" class="btn btn-primary btn-sm">Go to Dashboard</a>
+            </div>
+
+            <!-- Table of History Records -->
+            <div id="tableContainer" class="table-responsive hidden">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">ID</th>
+                            <th>News Claim</th>
+                            <th style="width: 170px;">Prediction Result</th>
+                            <th style="width: 160px;">Confidence Score</th>
+                            <th style="width: 150px;">Date &amp; Time</th>
+                            <th style="width: 130px; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <p>Trust Guide – Misinformation Detector &bull; Built with Java, Spring Boot &amp; SQL Database</p>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            await initAuth({ requireAuth: true });
+
+            const historyLoading = document.getElementById("historyLoading");
+            const emptyHistoryState = document.getElementById("emptyHistoryState");
+            const tableContainer = document.getElementById("tableContainer");
+            const historyTableBody = document.getElementById("historyTableBody");
+            const refreshBtn = document.getElementById("refreshBtn");
+            const clearAllBtn = document.getElementById("clearAllBtn");
+            const feedbackBanner = document.getElementById("feedbackBanner");
+
+            refreshBtn.addEventListener("click", () => {
+                hideFeedback();
+                loadHistory();
+            });
+
+            clearAllBtn.addEventListener("click", handleClearAll);
+
+            loadHistory();
+
+            async function loadHistory() {
+                historyLoading.classList.remove("hidden");
+                emptyHistoryState.classList.add("hidden");
+                tableContainer.classList.add("hidden");
+
+                try {
+                    const response = await fetch("/api/claims");
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        showFeedback(data.error || "Could not load history.", "error");
+                        return;
+                    }
+
+                    renderTable(Array.isArray(data) ? data : []);
+                } catch (e) {
+                    showFeedback("Error connecting to server to load history.", "error");
+                } finally {
+                    historyLoading.classList.add("hidden");
+                }
+            }
+
+            function renderTable(records) {
+                historyTableBody.innerHTML = "";
+
+                if (records.length === 0) {
+                    emptyHistoryState.classList.remove("hidden");
+                    tableContainer.classList.add("hidden");
+                    clearAllBtn.disabled = true;
+                    return;
+                }
+
+                emptyHistoryState.classList.add("hidden");
+                tableContainer.classList.remove("hidden");
+                clearAllBtn.disabled = false;
+
+                records.forEach((rec) => {
+                    const tr = document.createElement("tr");
+
+                    const isMisleading = rec.result && rec.result.toLowerCase().includes("misleading");
+                    const badgeClass = isMisleading ? "badge-misleading" : "badge-verify";
+                    const truePct = typeof rec.truePercentage === "number" ? rec.truePercentage : 50;
+                    const falsePct = typeof rec.falsePercentage === "number" ? rec.falsePercentage : (100 - truePct);
+
+                    tr.innerHTML = `
+                        <td class="table-id-cell">#${rec.id}</td>
+                        <td class="table-claim-text">${escapeHtml(rec.claimText)}</td>
+                        <td>
+                            <span class="status-badge ${badgeClass}">${escapeHtml(rec.result)}</span>
+                        </td>
+                        <td>
+                            <span class="pct-pill pct-pill-true">True: ${truePct}%</span>
+                            <span class="pct-pill pct-pill-false">False: ${falsePct}%</span>
+                        </td>
+                        <td style="font-size: 0.84rem; color: var(--text-muted);">
+                            ${formatDateTime(rec.createdAt)}
+                        </td>
+                        <td style="text-align: center; white-space: nowrap;">
+                            <a href="result.html?id=${rec.id}" class="btn btn-secondary btn-sm" style="padding: 5px 9px;" title="View Full Assessment">
+                                View
+                            </a>
+                            <button type="button" class="btn btn-danger-outline btn-sm delete-btn" data-id="${rec.id}" style="padding: 5px 9px;">
+                                Delete
+                            </button>
+                        </td>
+                    `;
+
+                    historyTableBody.appendChild(tr);
+                });
+
+                // Attach delete button listeners
+                document.querySelectorAll(".delete-btn").forEach((btn) => {
+                    btn.addEventListener("click", () => {
+                        const id = btn.getAttribute("data-id");
+                        handleDeleteRecord(id);
+                    });
+                });
+            }
+
+            async function handleDeleteRecord(id) {
+                const confirmed = window.confirm(`Are you sure you want to delete claim record #${id} from the database?`);
+                if (!confirmed) return;
+
+                hideFeedback();
+
+                try {
+                    const response = await fetch(`/api/claims/${id}`, { method: "DELETE" });
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        showFeedback(data.error || "Failed to delete record.", "error");
+                        return;
+                    }
+
+                    showFeedback(`Record #${id} deleted from database.`, "success");
+                    await loadHistory();
+                } catch (e) {
+                    showFeedback("Unable to reach server while deleting record.", "error");
+                }
+            }
+
+            async function handleClearAll() {
+                const confirmed = window.confirm("Are you sure you want to clear your entire analysis history? This action cannot be undone.");
+                if (!confirmed) return;
+
+                hideFeedback();
+
+                try {
+                    const response = await fetch("/api/claims", { method: "DELETE" });
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        showFeedback(data.error || "Failed to clear history.", "error");
+                        return;
+                    }
+
+                    showFeedback("All analysis history has been cleared from the database.", "success");
+                    await loadHistory();
+                } catch (e) {
+                    showFeedback("Unable to reach server while clearing history.", "error");
+                }
+            }
+
+            function formatDateTime(isoString) {
+                if (!isoString) return "Just now";
+                const d = new Date(isoString);
+                if (isNaN(d.getTime())) return isoString;
+                return d.toLocaleString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+            }
+
+            function showFeedback(msg, type) {
+                feedbackBanner.textContent = msg;
+                feedbackBanner.className = "feedback-banner " + (type === "success" ? "feedback-success" : "feedback-error");
+                feedbackBanner.classList.remove("hidden");
+            }
+
+            function hideFeedback() {
+                feedbackBanner.classList.add("hidden");
+                feedbackBanner.textContent = "";
+            }
+        });
+    </script>
+</body>
+</html>

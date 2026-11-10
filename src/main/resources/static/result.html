@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Result – Trust Guide Misinformation Detector</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Header with Navigation -->
+    <header class="site-header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="brand-link">
+                <div class="shield-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="app-title">Trust Guide</h1>
+                    <p class="app-tagline">Think before you trust.</p>
+                </div>
+            </a>
+            <nav id="headerNav" class="nav-links">
+                <!-- Dynamically populated by auth.js -->
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container main-content">
+        <!-- Status / Alert Banner for Feedback Messages -->
+        <div id="feedbackBanner" class="feedback-banner hidden" role="alert"></div>
+
+        <!-- Loading indicator -->
+        <div id="resultLoading" class="card history-loading" style="display: flex; justify-content: center; padding: 40px;">
+            <span class="spinner spinner-dark" aria-hidden="true"></span>
+            <span>Fetching analysis result from database...</span>
+        </div>
+
+        <!-- Assessment Result Card -->
+        <section id="resultCard" class="card result-card hidden" aria-labelledby="resultHeading">
+            <div class="result-header">
+                <div>
+                    <h2 id="resultHeading">Analysis Assessment Result</h2>
+                    <p class="section-subtitle" id="recordIdSubtitle">Record #ID</p>
+                </div>
+                <span id="resultBadge" class="status-badge">Needs Verification</span>
+            </div>
+
+            <div class="result-body">
+                <div>
+                    <label class="form-label" style="margin-bottom: 6px;">Submitted News Claim:</label>
+                    <p class="analyzed-claim-preview" id="resultClaimText"></p>
+                </div>
+
+                <!-- True / False Percentage Breakdown -->
+                <div class="percentage-panel">
+                    <div class="percentage-cards">
+                        <div class="score-box score-true">
+                            <span class="score-label">True / Reliable Indicator</span>
+                            <span id="truePercentValue" class="score-number">50%</span>
+                        </div>
+                        <div class="score-box score-false">
+                            <span class="score-label">False / Misleading Risk</span>
+                            <span id="falsePercentValue" class="score-number">50%</span>
+                        </div>
+                    </div>
+
+                    <div class="progress-bar-track" aria-label="True vs False percentage bar">
+                        <div id="trueProgressBar" class="progress-fill-true" style="width: 50%"></div>
+                        <div id="falseProgressBar" class="progress-fill-false" style="width: 50%"></div>
+                    </div>
+                    <div class="progress-legend">
+                        <span class="legend-true">&#9679; True / Reliable %</span>
+                        <span class="legend-false">&#9679; False / Misleading %</span>
+                    </div>
+                </div>
+
+                <div class="explanation-box">
+                    <h3>Why did it receive this assessment?</h3>
+                    <p id="resultExplanation"></p>
+                </div>
+
+                <p class="result-timestamp" id="resultTimestamp"></p>
+
+                <!-- Action Buttons -->
+                <div class="action-bar" style="margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-color);">
+                    <a href="dashboard.html" class="btn btn-primary">
+                        Analyze Another Claim
+                    </a>
+                    <a href="history.html" class="btn btn-secondary">
+                        View All History
+                    </a>
+                    <a href="analytics.html" class="btn btn-secondary">
+                        View Analytics
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Fallback state if record not found -->
+        <section id="notFoundCard" class="card empty-state hidden">
+            <h3 style="color: var(--text-primary); margin-bottom: 8px;">No Analysis Record Selected</h3>
+            <p style="margin-bottom: 16px;">We couldn't find a claim analysis record to display. Please analyze a claim first or view your history.</p>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <a href="dashboard.html" class="btn btn-primary">Go to Dashboard</a>
+                <a href="history.html" class="btn btn-secondary">Open History</a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <p>Trust Guide – Misinformation Detector &bull; Built with Java, Spring Boot &amp; SQL Database</p>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Require auth
+            await initAuth({ requireAuth: true });
+
+            const resultLoading = document.getElementById("resultLoading");
+            const resultCard = document.getElementById("resultCard");
+            const notFoundCard = document.getElementById("notFoundCard");
+            const recordIdSubtitle = document.getElementById("recordIdSubtitle");
+            const resultBadge = document.getElementById("resultBadge");
+            const resultClaimText = document.getElementById("resultClaimText");
+            const truePercentValue = document.getElementById("truePercentValue");
+            const falsePercentValue = document.getElementById("falsePercentValue");
+            const trueProgressBar = document.getElementById("trueProgressBar");
+            const falseProgressBar = document.getElementById("falseProgressBar");
+            const resultExplanation = document.getElementById("resultExplanation");
+            const resultTimestamp = document.getElementById("resultTimestamp");
+
+            // Read claim ID from URL query parameters (e.g. result.html?id=5)
+            const urlParams = new URLSearchParams(window.location.search);
+            const claimId = urlParams.get("id");
+
+            if (!claimId) {
+                // If no ID specified, attempt to load the most recent record
+                loadMostRecentRecord();
+            } else {
+                loadRecordById(claimId);
+            }
+
+            async function loadRecordById(id) {
+                try {
+                    const response = await fetch(`/api/claims/${id}`);
+                    if (!response.ok) {
+                        showNotFound();
+                        return;
+                    }
+                    const claim = await response.json();
+                    renderResult(claim);
+                } catch (e) {
+                    showNotFound();
+                }
+            }
+
+            async function loadMostRecentRecord() {
+                try {
+                    const response = await fetch("/api/claims");
+                    if (!response.ok) {
+                        showNotFound();
+                        return;
+                    }
+                    const list = await response.json();
+                    if (Array.isArray(list) && list.length > 0) {
+                        renderResult(list[0]);
+                    } else {
+                        showNotFound();
+                    }
+                } catch (e) {
+                    showNotFound();
+                }
+            }
+
+            function renderResult(claim) {
+                resultLoading.classList.add("hidden");
+                notFoundCard.classList.add("hidden");
+
+                const truePct = typeof claim.truePercentage === "number" ? claim.truePercentage : 50;
+                const falsePct = typeof claim.falsePercentage === "number" ? claim.falsePercentage : (100 - truePct);
+
+                recordIdSubtitle.textContent = `Record #${claim.id} • Saved in SQL Database`;
+                resultClaimText.textContent = `"${claim.claimText}"`;
+                resultExplanation.textContent = claim.explanation;
+                resultTimestamp.textContent = `Analyzed on ${formatDateTime(claim.createdAt)}`;
+
+                truePercentValue.textContent = `${truePct}%`;
+                falsePercentValue.textContent = `${falsePct}%`;
+                trueProgressBar.style.width = `${truePct}%`;
+                falseProgressBar.style.width = `${falsePct}%`;
+
+                resultBadge.textContent = claim.result;
+                resultBadge.className = "status-badge " + (
+                    claim.result && claim.result.toLowerCase().includes("misleading")
+                        ? "badge-misleading"
+                        : "badge-verify"
+                );
+
+                resultCard.classList.remove("hidden");
+            }
+
+            function showNotFound() {
+                resultLoading.classList.add("hidden");
+                resultCard.classList.add("hidden");
+                notFoundCard.classList.remove("hidden");
+            }
+
+            function formatDateTime(isoString) {
+                if (!isoString) return "Just now";
+                const d = new Date(isoString);
+                if (isNaN(d.getTime())) return isoString;
+                return d.toLocaleString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+            }
+        });
+    </script>
+</body>
+</html>

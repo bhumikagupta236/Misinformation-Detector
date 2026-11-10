@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login – Trust Guide Misinformation Detector</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Header -->
+    <header class="site-header">
+        <div class="container header-content">
+            <a href="index.html" class="brand-link">
+                <div class="shield-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="app-title">Trust Guide</h1>
+                    <p class="app-tagline">Think before you trust.</p>
+                </div>
+            </a>
+            <nav id="headerNav" class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="login.html" class="nav-link active">Login</a>
+                <a href="register.html" class="btn btn-primary btn-sm">Register</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container main-content">
+        <div class="auth-container">
+            <div id="feedbackBanner" class="feedback-banner hidden" role="alert"></div>
+
+            <section class="card auth-card" aria-labelledby="loginHeading">
+                <div class="card-header">
+                    <h2 id="loginHeading">Welcome Back</h2>
+                    <p class="section-subtitle">Log in to your Trust Guide account to analyze claims and view your history.</p>
+                </div>
+
+                <form id="loginForm" novalidate>
+                    <div class="form-group">
+                        <label for="emailInput" class="form-label">Email Address</label>
+                        <input
+                            type="email"
+                            id="emailInput"
+                            class="form-input"
+                            placeholder="name@example.com"
+                            required
+                            autocomplete="email"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="passwordInput" class="form-label">Password</label>
+                        <input
+                            type="password"
+                            id="passwordInput"
+                            class="form-input"
+                            placeholder="Enter your password"
+                            required
+                            autocomplete="current-password"
+                        >
+                    </div>
+
+                    <div class="form-actions" style="margin-top: 24px;">
+                        <button type="submit" id="loginBtn" class="btn btn-primary" style="width: 100%;">
+                            <span id="loginBtnText">Log In</span>
+                            <span id="loginSpinner" class="spinner hidden" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="auth-footer">
+                    Don't have an account yet? <a href="register.html">Register here</a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <p>Trust Guide – Misinformation Detector &bull; Built with Java, Spring Boot &amp; SQL Database</p>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            // If already logged in, redirect to dashboard
+            await initAuth({ redirectIfLoggedIn: true });
+
+            const form = document.getElementById("loginForm");
+            const emailInput = document.getElementById("emailInput");
+            const passwordInput = document.getElementById("passwordInput");
+            const loginBtn = document.getElementById("loginBtn");
+            const loginBtnText = document.getElementById("loginBtnText");
+            const loginSpinner = document.getElementById("loginSpinner");
+            const feedbackBanner = document.getElementById("feedbackBanner");
+
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                hideFeedback();
+
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
+
+                if (!email) {
+                    showFeedback("Please enter your email address.", "error");
+                    emailInput.focus();
+                    return;
+                }
+                if (!password) {
+                    showFeedback("Please enter your password.", "error");
+                    passwordInput.focus();
+                    return;
+                }
+
+                setLoading(true);
+
+                try {
+                    const response = await fetch("/api/auth/login", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email, password })
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        showFeedback(data.error || "Invalid email or password.", "error");
+                        return;
+                    }
+
+                    showFeedback("Login successful! Redirecting to dashboard...", "success");
+                    setTimeout(() => {
+                        window.location.href = "dashboard.html";
+                    }, 600);
+                } catch (err) {
+                    showFeedback("Unable to reach the server. Please verify the application is running.", "error");
+                } finally {
+                    setLoading(false);
+                }
+            });
+
+            function setLoading(loading) {
+                loginBtn.disabled = loading;
+                if (loading) {
+                    loginBtnText.textContent = "Logging in...";
+                    loginSpinner.classList.remove("hidden");
+                } else {
+                    loginBtnText.textContent = "Log In";
+                    loginSpinner.classList.add("hidden");
+                }
+            }
+
+            function showFeedback(msg, type) {
+                feedbackBanner.textContent = msg;
+                feedbackBanner.className = "feedback-banner " + (type === "success" ? "feedback-success" : "feedback-error");
+                feedbackBanner.classList.remove("hidden");
+            }
+
+            function hideFeedback() {
+                feedbackBanner.classList.add("hidden");
+                feedbackBanner.textContent = "";
+            }
+        });
+    </script>
+</body>
+</html>
