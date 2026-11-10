@@ -36,13 +36,14 @@
         <div id="feedbackBanner" class="feedback-banner hidden" role="alert"></div>
 
         <!-- Section Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
             <div>
-                <h2 style="font-size: 1.4rem; color: var(--text-primary); margin-bottom: 4px;">Analytics &amp; Data Insights</h2>
-                <p class="section-subtitle">Real-time statistics computed by the Java backend from stored SQL database records.</p>
+                <h2 style="font-size: 1.35rem; color: var(--text-primary); margin-bottom: 4px;">Analytics &amp; Data Insights</h2>
+                <p class="section-subtitle">Real-time charts and metrics calculated directly from stored database records.</p>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button type="button" id="refreshAnalyticsBtn" class="btn btn-secondary btn-sm">Refresh Data</button>
+                <a href="history.html" class="btn btn-secondary btn-sm">View History</a>
                 <a href="dashboard.html" class="btn btn-primary btn-sm">+ Analyze Claim</a>
             </div>
         </div>
@@ -70,18 +71,18 @@
             <div class="metric-card info-metric">
                 <span class="metric-title">Avg. Reliability Score</span>
                 <span id="metricAvgReliability" class="metric-value">0%</span>
-                <span class="metric-sub">Across all claims</span>
+                <span id="metricAvgFalseRisk" class="metric-sub">Avg. False Risk: 0%</span>
             </div>
         </div>
 
-        <!-- Charts Grid -->
+        <!-- Charts Grid (2 Main Interactive Graphs) -->
         <div class="charts-grid">
-            <!-- Pie Chart Card -->
+            <!-- Pie/Doughnut Chart Card -->
             <div class="chart-card">
                 <h3>Classification Distribution</h3>
-                <p class="section-subtitle">Percentage proportion of Misleading vs. Reliable claims.</p>
+                <p class="section-subtitle">Proportion of Potentially Misleading vs. Reliable claims.</p>
                 <div class="chart-container">
-                    <canvas id="pieChart"></canvas>
+                    <canvas id="pieChart" width="300" height="260"></canvas>
                 </div>
             </div>
 
@@ -90,14 +91,35 @@
                 <h3>Classification Comparison</h3>
                 <p class="section-subtitle">Total count of claims per assessment category.</p>
                 <div class="chart-container">
-                    <canvas id="barChart"></canvas>
+                    <canvas id="barChart" width="300" height="260"></canvas>
                 </div>
             </div>
         </div>
 
+        <!-- Second Row: Average True vs False Risk Comparison Card -->
+        <section class="card" style="padding: 24px; margin-top: 4px;">
+            <h3 style="font-size: 1.1rem; color: var(--text-primary); margin-bottom: 6px;">
+                Average Score Comparison
+            </h3>
+            <p class="section-subtitle" style="margin-bottom: 16px;">
+                Overall aggregate balance of Reliability Indicator vs. Misleading Risk across all saved claims.
+            </p>
+
+            <div class="percentage-panel" style="background-color: #ffffff; border: 1.5px solid var(--border-color);">
+                <div class="progress-bar-track" style="height: 20px;" aria-label="Average True vs False percentage bar">
+                    <div id="avgTrueProgressBar" class="progress-fill-true" style="width: 50%"></div>
+                    <div id="avgFalseProgressBar" class="progress-fill-false" style="width: 50%"></div>
+                </div>
+                <div class="progress-legend" style="margin-top: 12px; font-size: 0.88rem;">
+                    <span id="legendTrueAvg" class="legend-true">&#9679; Average True / Reliable Score: 50%</span>
+                    <span id="legendFalseAvg" class="legend-false">&#9679; Average False / Misleading Risk: 50%</span>
+                </div>
+            </div>
+        </section>
+
         <!-- Explanatory Note -->
         <div class="disclaimer-box">
-            <strong>Data Source:</strong> All metrics, percentages, and graph distributions above are generated dynamically by <code>NewsClaimService.java</code> and <code>/api/claims/analytics</code> directly from records stored in the database.
+            <strong>Database-Driven Analytics:</strong> All figures and chart visualizations are generated dynamically from your database records via <code>GET /api/claims/analytics</code> and <code>NewsClaimService.java</code>.
         </div>
     </main>
 
@@ -120,6 +142,11 @@
             const metricReliable = document.getElementById("metricReliable");
             const metricReliablePct = document.getElementById("metricReliablePct");
             const metricAvgReliability = document.getElementById("metricAvgReliability");
+            const metricAvgFalseRisk = document.getElementById("metricAvgFalseRisk");
+            const avgTrueProgressBar = document.getElementById("avgTrueProgressBar");
+            const avgFalseProgressBar = document.getElementById("avgFalseProgressBar");
+            const legendTrueAvg = document.getElementById("legendTrueAvg");
+            const legendFalseAvg = document.getElementById("legendFalseAvg");
             const feedbackBanner = document.getElementById("feedbackBanner");
 
             let pieChartInstance = null;
@@ -152,50 +179,58 @@
                 const total = stats.totalClaims || 0;
                 const misleading = stats.misleadingCount || 0;
                 const reliable = stats.reliableCount || 0;
-                const avgTrue = stats.averageTruePercentage || 0;
+                const avgTrue = typeof stats.averageTruePercentage === "number" ? stats.averageTruePercentage : 0;
+                const avgFalse = typeof stats.averageFalsePercentage === "number" ? stats.averageFalsePercentage : (100 - avgTrue);
 
                 metricTotal.textContent = total;
                 metricMisleading.textContent = misleading;
                 metricReliable.textContent = reliable;
                 metricAvgReliability.textContent = `${avgTrue}%`;
+                metricAvgFalseRisk.textContent = `Avg. False Risk: ${avgFalse}%`;
 
                 const misleadingPct = total > 0 ? Math.round((misleading / total) * 100) : 0;
                 const reliablePct = total > 0 ? Math.round((reliable / total) * 100) : 0;
 
                 metricMisleadingPct.textContent = `${misleadingPct}% of total claims`;
                 metricReliablePct.textContent = `${reliablePct}% of total claims`;
+
+                // Update horizontal comparison bar
+                avgTrueProgressBar.style.width = `${avgTrue}%`;
+                avgFalseProgressBar.style.width = `${avgFalse}%`;
+                legendTrueAvg.innerHTML = `&#9679; Average True / Reliable Score: <strong>${avgTrue}%</strong>`;
+                legendFalseAvg.innerHTML = `&#9679; Average False / Misleading Risk: <strong>${avgFalse}%</strong>`;
             }
 
             function renderCharts(stats) {
                 const misleading = stats.misleadingCount || 0;
                 const reliable = stats.reliableCount || 0;
 
-                // Check if Chart.js is available
-                if (typeof Chart === "undefined") {
-                    console.warn("Chart.js not loaded. Showing summary numbers.");
-                    return;
+                // If Chart.js loaded via CDN
+                if (typeof Chart !== "undefined") {
+                    renderWithChartJs(misleading, reliable);
+                } else {
+                    // Native HTML5 Canvas Fallback (offline lab safe!)
+                    renderNativeCanvasFallback(misleading, reliable);
                 }
+            }
 
-                // Destroy previous instances if refreshing
+            function renderWithChartJs(misleading, reliable) {
                 if (pieChartInstance) pieChartInstance.destroy();
                 if (barChartInstance) barChartInstance.destroy();
 
                 const ctxPie = document.getElementById("pieChart").getContext("2d");
                 const ctxBar = document.getElementById("barChart").getContext("2d");
 
-                // Pie Chart
+                // Doughnut / Pie Chart
                 pieChartInstance = new Chart(ctxPie, {
                     type: "doughnut",
                     data: {
                         labels: ["Potentially Misleading", "Needs Verification (Reliable)"],
                         datasets: [{
                             data: [misleading, reliable],
-                            backgroundColor: [
-                                "#dc2626", // Red for misleading
-                                "#16a34a"  // Green for reliable
-                            ],
+                            backgroundColor: ["#dc2626", "#16a34a"],
                             borderColor: "#ffffff",
-                            borderWidth: 2,
+                            borderWidth: 3,
                             hoverOffset: 6
                         }]
                     },
@@ -220,16 +255,10 @@
                     data: {
                         labels: ["Potentially Misleading", "Needs Verification"],
                         datasets: [{
-                            label: "Number of Claims",
+                            label: "Total Count",
                             data: [misleading, reliable],
-                            backgroundColor: [
-                                "rgba(220, 38, 38, 0.85)",
-                                "rgba(22, 163, 74, 0.85)"
-                            ],
-                            borderColor: [
-                                "#dc2626",
-                                "#16a34a"
-                            ],
+                            backgroundColor: ["rgba(220, 38, 38, 0.85)", "rgba(22, 163, 74, 0.85)"],
+                            borderColor: ["#dc2626", "#16a34a"],
                             borderWidth: 1.5,
                             borderRadius: 6
                         }]
@@ -240,15 +269,12 @@
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                ticks: {
-                                    stepSize: 1,
-                                    font: { family: "-apple-system, Segoe UI, Roboto", size: 11 }
-                                },
+                                ticks: { stepSize: 1, font: { size: 11 } },
                                 grid: { color: "#f1f5f9" }
                             },
                             x: {
                                 grid: { display: false },
-                                ticks: { font: { family: "-apple-system, Segoe UI, Roboto", size: 12 } }
+                                ticks: { font: { size: 12, weight: 600 } }
                             }
                         },
                         plugins: {
@@ -256,6 +282,69 @@
                         }
                     }
                 });
+            }
+
+            function renderNativeCanvasFallback(misleading, reliable) {
+                // Native Pie Chart
+                const pieCanvas = document.getElementById("pieChart");
+                const pCtx = pieCanvas.getContext("2d");
+                pCtx.clearRect(0, 0, pieCanvas.width, pieCanvas.height);
+
+                const total = misleading + reliable;
+                const centerX = pieCanvas.width / 2;
+                const centerY = pieCanvas.height / 2;
+                const radius = 80;
+
+                if (total === 0) {
+                    pCtx.fillStyle = "#e2e8f0";
+                    pCtx.beginPath();
+                    pCtx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                    pCtx.fill();
+                    return;
+                }
+
+                const misAngle = (misleading / total) * 2 * Math.PI;
+
+                // Red slice
+                pCtx.fillStyle = "#dc2626";
+                pCtx.beginPath();
+                pCtx.moveTo(centerX, centerY);
+                pCtx.arc(centerX, centerY, radius, 0, misAngle);
+                pCtx.closePath();
+                pCtx.fill();
+
+                // Green slice
+                pCtx.fillStyle = "#16a34a";
+                pCtx.beginPath();
+                pCtx.moveTo(centerX, centerY);
+                pCtx.arc(centerX, centerY, radius, misAngle, 2 * Math.PI);
+                pCtx.closePath();
+                pCtx.fill();
+
+                // Native Bar Chart
+                const barCanvas = document.getElementById("barChart");
+                const bCtx = barCanvas.getContext("2d");
+                bCtx.clearRect(0, 0, barCanvas.width, barCanvas.height);
+
+                const maxVal = Math.max(1, misleading, reliable);
+                const barWidth = 60;
+                const baseLineY = barCanvas.height - 40;
+
+                const misHeight = (misleading / maxVal) * 150;
+                const relHeight = (reliable / maxVal) * 150;
+
+                // Misleading bar
+                bCtx.fillStyle = "#dc2626";
+                bCtx.fillRect(60, baseLineY - misHeight, barWidth, misHeight);
+                bCtx.fillStyle = "#1e1b4b";
+                bCtx.font = "12px sans-serif";
+                bCtx.fillText(`Misleading (${misleading})`, 40, baseLineY + 20);
+
+                // Reliable bar
+                bCtx.fillStyle = "#16a34a";
+                bCtx.fillRect(170, baseLineY - relHeight, barWidth, relHeight);
+                bCtx.fillStyle = "#1e1b4b";
+                bCtx.fillText(`Reliable (${reliable})`, 165, baseLineY + 20);
             }
 
             function showFeedback(msg, type) {

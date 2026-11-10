@@ -40,9 +40,12 @@
                     <h2 id="historyHeading">Analysis History</h2>
                     <p class="section-subtitle">All previously analyzed news claims stored in the SQL database (newest first).</p>
                 </div>
-                <div class="history-actions">
+                <div class="history-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <a href="dashboard.html" class="btn btn-primary btn-sm">
                         + Analyze New Claim
+                    </a>
+                    <a href="analytics.html" class="btn btn-secondary btn-sm">
+                        View Analytics &amp; Graphs
                     </a>
                     <button type="button" id="refreshBtn" class="btn btn-secondary btn-sm">
                         Refresh
@@ -76,7 +79,7 @@
                             <th style="width: 170px;">Prediction Result</th>
                             <th style="width: 160px;">Confidence Score</th>
                             <th style="width: 150px;">Date &amp; Time</th>
-                            <th style="width: 130px; text-align: center;">Actions</th>
+                            <th style="width: 140px; text-align: center;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody">

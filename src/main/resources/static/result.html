@@ -43,15 +43,15 @@
         <section id="resultCard" class="card result-card hidden" aria-labelledby="resultHeading">
             <div class="result-header">
                 <div>
-                    <h2 id="resultHeading">Analysis Assessment Result</h2>
-                    <p class="section-subtitle" id="recordIdSubtitle">Record #ID</p>
+                    <h2 id="resultHeading">Assessment Result</h2>
+                    <p class="section-subtitle" id="recordIdSubtitle">Stored in SQL Database</p>
                 </div>
                 <span id="resultBadge" class="status-badge">Needs Verification</span>
             </div>
 
             <div class="result-body">
                 <div>
-                    <label class="form-label" style="margin-bottom: 6px;">Submitted News Claim:</label>
+                    <label class="form-label" style="margin-bottom: 6px; font-weight: 700;">Analyzed News Claim:</label>
                     <p class="analyzed-claim-preview" id="resultClaimText"></p>
                 </div>
 
@@ -59,7 +59,7 @@
                 <div class="percentage-panel">
                     <div class="percentage-cards">
                         <div class="score-box score-true">
-                            <span class="score-label">True / Reliable Indicator</span>
+                            <span class="score-label">True / Reliable Score</span>
                             <span id="truePercentValue" class="score-number">50%</span>
                         </div>
                         <div class="score-box score-false">
@@ -85,16 +85,29 @@
 
                 <p class="result-timestamp" id="resultTimestamp"></p>
 
-                <!-- Action Buttons -->
-                <div class="action-bar" style="margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-color);">
+                <!-- Action Buttons: Analyze Another, View History, View Analytics -->
+                <div class="action-bar" style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-color); display: flex; gap: 12px; flex-wrap: wrap;">
                     <a href="dashboard.html" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
                         Analyze Another Claim
                     </a>
                     <a href="history.html" class="btn btn-secondary">
-                        View All History
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        View History
                     </a>
-                    <a href="analytics.html" class="btn btn-secondary">
-                        View Analytics
+                    <a href="analytics.html" class="btn btn-secondary" style="border-color: var(--accent-primary); color: var(--accent-primary);">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                        View Analytics &amp; Graphs
                     </a>
                 </div>
             </div>
@@ -142,7 +155,6 @@
             const claimId = urlParams.get("id");
 
             if (!claimId) {
-                // If no ID specified, attempt to load the most recent record
                 loadMostRecentRecord();
             } else {
                 loadRecordById(claimId);
