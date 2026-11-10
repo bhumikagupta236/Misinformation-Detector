@@ -1,168 +1,210 @@
 # Trust Guide – Misinformation Detector
 
-**Think before you trust.**
-
-**Trust Guide** is a beginner-friendly, full-stack web application built for a college Problem-Based Learning (PBL) project. It allows users to enter a news headline, social media forward, or short paragraph and receive an initial baseline assessment of whether the text appears **Potentially Misleading** or **Needs Verification**, while saving and managing analysis history in a **MySQL** database.
-
-> **Educational Note:** This application uses a transparent, keyword-based heuristic approach in Java to identify sensational or clickbait phrasing. It does not claim to definitively prove whether a news story is true or false, and it is not a trained machine-learning fact-checking model.
+> **Problem-Based Learning (PBL) Full-Stack Project**  
+> *Bachelor of Computer Applications (BCA) Level*  
+> **Tagline:** Think before you trust.
 
 ---
 
-## 1. What Trust Guide Does
+## 1. Project Overview
 
-- **Analyzes News Claims:** Checks entered news claims against a documented baseline list of sensational or clickbait expressions (case-insensitive) and excessive punctuation patterns.
-- **Provides Nuanced Preliminary Results:**
-  - **Potentially Misleading:** Returned when one or more sensational/clickbait indicators are found, along with an explanation of which expressions triggered the warning.
-  - **Needs Verification:** Returned when no suspicious keywords are detected, reminding the user that the absence of clickbait wording is not proof that a claim is true.
-- **Stores History in MySQL:** Saves the original claim text, assessment result, explanation, and timestamp in the `news_claims` table inside the `trust_guide` MySQL database.
-- **Manages History:** Displays saved records ordered newest first, and allows users to delete individual records or clear all history from the database.
+**Trust Guide** is a full-stack, database-backed web application developed to help users analyze news headlines, social media claims, and text snippets to detect sensational or misleading patterns.
 
----
+The project features a **multi-page architecture**, **user authentication**, **session management**, **SQL database persistence**, and **interactive analytics with data visualizations**.
 
-## 2. Technologies Used
+### Key Features
+1. **User Authentication & Security:** Secure registration and login with SHA-256 salted password hashing and session management.
+2. **Dedicated News Dashboard:** Clean input interface with sample claims, character counters, and real-time validation.
+3. **Dedicated Result Display Page:** Shows assessment badges (*Potentially Misleading* vs. *Needs Verification*), True (Reliability) and False (Misleading Risk) percentages, and educational explanations.
+4. **User-Specific Claim History:** Displays past claims with sequential serial numbering (`#01`, `#02`, ...), timestamp, assessment badges, direct view links, and single-click delete.
+5. **Interactive Analytics Page:** Visual dashboard with summary cards, High-DPI Chart.js donut and bar charts, and overall True vs. False risk distribution bars.
+6. **SQL Database Persistence:** Stores users and claims using Spring Data JPA with MySQL compatibility.
 
-- **Frontend:** HTML5, CSS3, Vanilla JavaScript (Fetch API)
-- **Backend:** Java, Spring Boot (Spring Web REST API, Spring Data JPA)
-- **Database:** MySQL (`trust_guide` database, `news_claims` table)
-- **Build Tool:** Apache Maven (includes Maven Wrapper `mvnw` / `mvnw.cmd`)
+> **Academic Note:** This PBL project uses a transparent, keyword-based heuristic approach in Java to identify clickbait phrasing and sensationalism. It does not replace professional fact-checking organizations.
 
 ---
 
-## 3. Project Folder Structure
+## 2. Project Directory Structure
 
 ```text
 Trust guides/
-├── pom.xml
-├── schema.sql
-├── README.md
-├── mvnw
-├── mvnw.cmd
+├── pom.xml                               # Maven project dependencies and build configuration
+├── schema.sql                            # Production SQL schema (users & news_claims tables)
+├── README.md                             # Comprehensive project documentation
+├── run-app.bat                           # 1-Click launcher script for Windows
+├── mvn.cmd                               # VS Code / terminal helper script for Maven
+├── mvnw / mvnw.cmd                       # Cross-platform Apache Maven Wrapper
+├── .mvn/                                 # Maven wrapper runtime binaries
+├── .vscode/                              # VS Code tasks and debugger configuration
+│   ├── launch.json
+│   ├── settings.json
+│   └── tasks.json
+├── data/                                 # Embedded SQL database directory
+│   ├── trust_guide.mv.db
+│   └── trust_guide.lock.db
 └── src/
-    └── main/
-        ├── java/
-        │   └── com/
-        │       └── datastellers/
-        │           └── detector/
-        │               ├── MisinformationDetectorApplication.java
-        │               ├── NewsClaim.java
-        │               ├── NewsClaimRepository.java
-        │               ├── NewsClaimService.java
-        │               └── NewsClaimController.java
-        └── resources/
-            ├── application.properties
-            └── static/
-                ├── index.html
-                ├── style.css
-                └── script.js
+    ├── main/
+    │   ├── java/com/datastellers/detector/
+    │   │   ├── MisinformationDetectorApplication.java  # Main Spring Boot Application entry point
+    │   │   ├── User.java                                # User entity (id, email, passwordHash, createdAt)
+    │   │   ├── UserRepository.java                      # JPA repository for User queries
+    │   │   ├── UserService.java                         # User registration, validation & auth logic
+    │   │   ├── PasswordUtil.java                        # SHA-256 + Salt password hashing utility
+    │   │   ├── AuthController.java                      # REST API for register, login, logout, currentUser
+    │   │   ├── NewsClaim.java                           # News claim entity (id, userId, text, result, %, date)
+    │   │   ├── NewsClaimRepository.java                 # JPA repository for claim history & analytics
+    │   │   ├── NewsClaimService.java                    # Heuristic analysis engine & analytics aggregator
+    │   │   └── NewsClaimController.java                 # REST API for claim analysis, history, and metrics
+    │   └── resources/
+    │       ├── application.properties                   # Database connection & Spring Boot configuration
+    │       └── static/                                  # Frontend UI (HTML5, CSS3, JavaScript)
+    │           ├── index.html                           # Gateway routing page (redirects to Login or Dashboard)
+    │           ├── register.html                        # User registration page
+    │           ├── login.html                           # User login page
+    │           ├── dashboard.html                       # Main dashboard for analyzing claims
+    │           ├── result.html                          # Separate result display page with percentage bars
+    │           ├── history.html                         # User history page with sequential #01 numbering
+    │           ├── analytics.html                       # Analytics dashboard with High-DPI charts
+    │           ├── auth.js                              # Shared authentication state & header navigation
+    │           └── style.css                            # Unified responsive stylesheet
+    └── test/java/com/datastellers/detector/
+        └── MisinformationDetectorApplicationTests.java  # Automated unit and integration tests (7 test suites)
 ```
 
 ---
 
-## 4. Prerequisites
+## 3. Application Workflow
 
-1. **Java Development Kit (JDK):** Java 21 or newer (compatible with JDK 21–26).
-   - Check with: `java -version`
-2. **MySQL Server:** MySQL 8.0+ (or MariaDB / XAMPP MySQL running on port `3306`).
-3. **Maven:** Included via the project's Maven Wrapper (`.\mvnw.cmd`), or an installed Apache Maven 3.9+.
+```mermaid
+flowchart LR
+    A["User Visits /"] --> B{"Logged In?"}
+    B -- "No" --> C["register.html\n(Create Account)"]
+    C --> D["login.html\n(Authenticate)"]
+    D --> E["dashboard.html\n(Submit News Claim)"]
+    B -- "Yes" --> E
+    E --> F["result.html\n(View Prediction & %)"]
+    F --> G["analytics.html\n(View Charts & Metrics)"]
+    E --> H["history.html\n(Manage Saved Claims)"]
+    F --> H
+```
+
+1. **Gateway (`index.html`):** Automatically checks authentication via `/api/auth/current-user`. Redirects guest users to register and logged-in users to the dashboard.
+2. **Registration & Login (`register.html` & `login.html`):** Validates input format, checks email uniqueness, hashes passwords securely, and sets up session.
+3. **Dashboard (`dashboard.html`):** Submits news claim to `/api/claims/analyze`.
+4. **Result (`result.html`):** Fetches the saved record by ID, displays True/False percentages, and provides direct links to Analytics and History.
+5. **History (`history.html`):** Displays user's claims ordered newest first, with sequential serial numbers (`#01`, `#02`), view links, and deletion.
+6. **Analytics (`analytics.html`):** Computes statistics and visualizes data using Chart.js donut and bar charts with high-DPI retina display support.
 
 ---
 
-## 5. How to Create the MySQL Database and Table
+## 4. Backend Architecture & Layers
 
-Make sure your MySQL Server is running, then open **MySQL Workbench** or the **MySQL Command Line Client** and run the SQL commands from [`schema.sql`](schema.sql):
+The Java backend follows standard Spring Boot MVC architectural patterns:
+
+| Layer | Classes | Responsibility |
+| :--- | :--- | :--- |
+| **Presentation / UI** | `*.html`, `style.css`, `auth.js` | Responsive user interface, asynchronous Fetch API calls, dynamic DOM manipulation. |
+| **REST Controller** | `AuthController.java`, `NewsClaimController.java` | Handles HTTP requests (`POST`, `GET`, `DELETE`), session validation, JSON serialization. |
+| **Service Layer** | `UserService.java`, `NewsClaimService.java` | Business logic, password hashing, heuristic text analysis, score calculation, analytics aggregation. |
+| **Data Access / Repository** | `UserRepository.java`, `NewsClaimRepository.java` | Spring Data JPA interfaces for database CRUD operations and user-filtered queries. |
+| **Domain Model / Entity** | `User.java`, `NewsClaim.java` | JPA entities mapped to database tables with constraints and timestamps. |
+| **Security Utility** | `PasswordUtil.java` | SHA-256 cryptographic hashing with salt to protect stored credentials. |
+
+---
+
+## 5. Database Schema
+
+The database schema is defined in [`schema.sql`](schema.sql) and automatically maintained by Spring Data JPA:
 
 ```sql
-CREATE DATABASE IF NOT EXISTS trust_guide
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
-
-USE trust_guide;
-
-CREATE TABLE IF NOT EXISTS news_claims (
+-- 1. Users Table
+CREATE TABLE users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(150) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. News Claims Table
+CREATE TABLE news_claims (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NULL,
     claim_text TEXT NOT NULL,
     result VARCHAR(100) NOT NULL,
+    true_percentage INT NOT NULL DEFAULT 50,
+    false_percentage INT NOT NULL DEFAULT 50,
     explanation TEXT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_news_claims_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
 
-*(Note: The application is also configured with `createDatabaseIfNotExist=true` and `spring.jpa.hibernate.ddl-auto=update`, so once MySQL is running and your credentials are set, Spring Boot can automatically create the `trust_guide` database and `news_claims` table on startup.)*
+---
+
+## 6. REST API Endpoints
+
+### Authentication Endpoints (`AuthController.java`)
+* `POST /api/auth/register` — Registers a new user with full name, email, and password.
+* `POST /api/auth/login` — Authenticates user credentials and starts an `HttpSession`.
+* `POST /api/auth/logout` — Invalidates the current user session.
+* `GET /api/auth/current-user` — Returns the logged-in user profile or guest status.
+
+### News Claim Endpoints (`NewsClaimController.java`)
+* `POST /api/claims/analyze` — Analyzes a news claim, calculates True/False percentage scores, saves to SQL, and returns result JSON.
+* `GET /api/claims` — Returns all claims submitted by the currently logged-in user (ordered newest first).
+* `GET /api/claims/{id}` — Returns a single claim record by its ID.
+* `DELETE /api/claims/{id}` — Deletes a specific claim record belonging to the user.
+* `DELETE /api/claims` — Clears all claim history for the logged-in user.
+* `GET /api/claims/analytics` — Returns aggregated analytics (total, misleading count, reliable count, average scores).
 
 ---
 
-## 6. How to Configure Database Credentials
+## 7. How to Run the Application
 
-Database settings are located in `src/main/resources/application.properties`:
+### Option A: 1-Click Launch (Windows)
+Double-click [`run-app.bat`](run-app.bat) in the project root folder.
 
-```properties
-spring.datasource.url=${DB_URL:jdbc:mysql://localhost:3306/trust_guide?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-spring.datasource.username=${DB_USERNAME:root}
-spring.datasource.password=${DB_PASSWORD:YOUR_MYSQL_PASSWORD}
-```
-
-You can configure your credentials in **either of two ways**:
-
-### Option A: Set Environment Variables in PowerShell (Recommended)
-```powershell
-$env:DB_USERNAME="root"
-$env:DB_PASSWORD="your_actual_mysql_password"
-```
-
-### Option B: Update `application.properties`
-Open `src/main/resources/application.properties` and replace `YOUR_MYSQL_PASSWORD` with your local MySQL `root` password.
-
----
-
-## 7. How to Build and Run the Spring Boot Application
-
-Open a terminal (PowerShell or Command Prompt) in the project root folder and run:
-
-### Using the included Maven Wrapper (Windows PowerShell):
+### Option B: Using Maven in Terminal
+Open your terminal in the project folder and run:
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
+*(Or `mvn spring-boot:run` if Maven is installed globally).*
 
-### Or using an installed Maven binary:
+### Option C: Using Pre-Built JAR
 ```powershell
-mvn spring-boot:run
+java -jar target/trust-guide-1.0.0.jar
 ```
 
----
-
-## 8. Which URL to Open in the Browser
-
-Once the terminal shows `Started MisinformationDetectorApplication`, open your browser and visit:
-
+Once started, open your web browser at:
 ```text
 http://localhost:8080
 ```
 
 ---
 
-## 9. How to Test Analyzing, Saving, Viewing, and Deleting History
+## 8. Running Automated Unit Tests
 
-1. **Analyze a Sensational Claim:**
-   - Click the **Sensational Claim** example chip (or type `"Shocking truth revealed! Share immediately!!!"`) and click **Analyze Claim**.
-   - Verify that the **Assessment Result** card displays **Potentially Misleading** along with the matched indicators and educational note.
-2. **Analyze a Neutral Headline:**
-   - Click the **Neutral News Headline** chip and click **Analyze Claim**.
-   - Verify that the result displays **Needs Verification** and explains why the absence of suspicious keywords does not prove a claim is true.
-3. **Verify MySQL Persistence:**
-   - Refresh the browser page (`F5`). Both analyzed claims remain in the **Recent History** section ordered newest first.
-   - Or run `SELECT * FROM trust_guide.news_claims;` in MySQL to view the stored rows directly.
-4. **Delete a Single Record:**
-   - Click **Delete** on any history card and confirm the prompt. Verify that the record is removed from the list and from MySQL.
-5. **Clear All History:**
-   - Click **Clear History**, confirm the prompt, and verify that all records are deleted and the empty history message is displayed.
+To run the automated test suite verifying controllers, validation, hashing, heuristic detection, and JPA operations:
+
+```powershell
+.\mvnw.cmd test
+```
+
+**Expected Result:**
+```text
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+```
 
 ---
 
-## 10. Common Errors and How to Resolve Them
+## 9. Technologies Used
 
-| Problem | Cause | Solution |
-| :--- | :--- | :--- |
-| **`Database connection error: Unable to reach the MySQL database`** | MySQL Server is not running, or the password in `application.properties` / `DB_PASSWORD` does not match your MySQL password. | Start MySQL Server (e.g., via Windows Services or MySQL Workbench) and verify `DB_USERNAME` and `DB_PASSWORD`. |
-| **`Port 8080 was already in use`** | Another instance of Spring Boot or another service is using port 8080. | Stop the other process or change `server.port=8081` in `src/main/resources/application.properties`. |
-| **`'mvn' is not recognized`** | Maven is not added to the Windows system `PATH`. | Use the included Maven Wrapper command `.\mvnw.cmd spring-boot:run` instead of `mvn`. |
-| **`Access denied for user 'root'@'localhost'`** | Incorrect MySQL password configured. | Set `$env:DB_PASSWORD="your_password"` in PowerShell before running the app, or update `spring.datasource.password` in `application.properties`. |
+* **Language:** Java 21+
+* **Framework:** Spring Boot 3.5.6 (Spring Web, Spring Data JPA)
+* **Database:** SQL / H2 (MySQL Mode) & standalone MySQL 8.0 compatible
+* **Frontend:** HTML5, CSS3, JavaScript (Fetch API, Chart.js for data visualization)
+* **Security:** SHA-256 with cryptographic salt, Spring `HttpSession`
+* **Build System:** Apache Maven 3.9+
